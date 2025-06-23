@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "706434556235",
+    "project_id": "errand-application-afd02",
+    "storage_bucket": "errand-application-afd02.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:706434556235:android:f0a341fc5f91e21d2408ce",
+        "android_client_info": {
+          "package_name": "com.chintutech.errand"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBYQi4cNGiId7XLiKGIDpxeYC_1VQ1Hgrg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
