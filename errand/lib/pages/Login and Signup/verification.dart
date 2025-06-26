@@ -1,9 +1,10 @@
+import 'package:errand/pages/Homepage/home.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:http/http.dart' as http;
 
 class RunnerVerificationPage extends StatefulWidget {
   const RunnerVerificationPage({super.key});
@@ -62,10 +63,32 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
     }
   }
 
-  Future<String> uploadFileToStorage(File file, String path) async {
-    final ref = FirebaseStorage.instance.ref().child(path);
-    await ref.putFile(file);
-    return await ref.getDownloadURL();
+  Future<String> uploadFileToSupabase(File file, String path) async {
+    const bucket = 'verifications';
+    const supabaseUrl = 'https://rfqnervrhxzackrmuoec.supabase.co';
+    const supabaseKey =
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmcW5lcnZyaHh6YWNrcm11b2VjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxODUyMzAsImV4cCI6MjA2NTc2MTIzMH0.NywMytTREcK2onPcAY53tUDS0tvulCK0eeuRKXMXbNg'; // Replace with your anon/public key
+
+    final uploadUrl = '$supabaseUrl/storage/v1/object/$bucket/$path';
+    final bytes = await file.readAsBytes();
+
+    final response = await http.post(
+      Uri.parse(uploadUrl),
+      headers: {
+        'Authorization': 'Bearer $supabaseKey',
+        'apikey': supabaseKey,
+        'Content-Type': 'application/octet-stream',
+      },
+      body: bytes,
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return '$supabaseUrl/storage/v1/object/public/$bucket/$path';
+    } else {
+      throw Exception(
+        'Upload failed (${response.statusCode}): ${response.body}',
+      );
+    }
   }
 
   void submitVerification() async {
@@ -84,13 +107,13 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
     setState(() => isSubmitting = true);
 
     try {
-      final nrcUrl = await uploadFileToStorage(
+      final nrcUrl = await uploadFileToSupabase(
         _nrcPhoto!,
-        'verifications/${user.uid}/nrc.jpg',
+        '${user.uid}/nrc.jpg',
       );
-      final profileUrl = await uploadFileToStorage(
+      final profileUrl = await uploadFileToSupabase(
         _profilePhoto!,
-        'verifications/${user.uid}/selfie.jpg',
+        '${user.uid}/selfie.jpg',
       );
 
       await FirebaseFirestore.instance
@@ -113,8 +136,13 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Verification submitted. Await admin approval.'),
+          content: Text('Verification submitted. Awaiting admin approval.'),
         ),
+      );
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => HomePage()),
       );
 
       Navigator.pop(context);
@@ -249,7 +277,7 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
                   validator: (value) {
                     if (value == null || value.isEmpty)
                       return "Enter phone number";
-                    if (!RegExp(r'^\d{10}\$').hasMatch(value))
+                    if (!RegExp(r'^\d{10}$').hasMatch(value))
                       return "Must be 10 digits";
                     return null;
                   },
@@ -263,7 +291,7 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
                   validator: (value) {
                     if (value == null || value.isEmpty)
                       return "Enter computer number";
-                    if (!RegExp(r'^\d{10}\$').hasMatch(value))
+                    if (!RegExp(r'^\d{10}$').hasMatch(value))
                       return "Must be 10 digits";
                     return null;
                   },
@@ -275,8 +303,8 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
                   icon: Icons.credit_card,
                   validator: (value) {
                     if (value == null || value.isEmpty)
-                      return "Enter NRC number";
-                    if (!RegExp(r'^\d{6}/\d{2}/\d\$').hasMatch(value))
+                      return "Invalid NRC number";
+                    if (!RegExp(r'^\d{6}/\d{2}/\d$').hasMatch(value))
                       return "Invalid NRC format";
                     return null;
                   },

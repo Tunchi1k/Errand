@@ -1,4 +1,4 @@
-import 'package:errand/pages/Homepage/homee.dart';
+import 'package:errand/pages/Homepage/home.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart'; // Import NavBar
 import 'package:errand/pages/Login%20and%20Signup/signup.dart';
@@ -37,7 +37,7 @@ class _LoginState extends State<Login> {
       // ✅ Navigate to NavBar after login
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const HomePagee()),
+        MaterialPageRoute(builder: (context) => const HomePage()),
       );
     } on FirebaseAuthException catch (e) {
       String errorMessage;

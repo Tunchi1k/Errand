@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:errand/pages/Homepage/homee.dart';
+import 'package:errand/pages/Homepage/home.dart';
 import 'package:errand/pages/Login%20and%20Signup/verification.dart';
 import 'package:flutter/material.dart';
 import 'signup.dart';
@@ -109,7 +109,7 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
                       setState(() => isSenderLoading = false);
                       Navigator.pushReplacement(
                         context,
-                        MaterialPageRoute(builder: (context) => HomePagee()),
+                        MaterialPageRoute(builder: (context) => HomePage()),
                       );
                     },
                   ),
