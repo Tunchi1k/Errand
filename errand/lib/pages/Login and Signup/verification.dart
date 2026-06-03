@@ -2,6 +2,7 @@ import 'package:errand/pages/Homepage/home.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:async';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
@@ -39,15 +40,34 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
   void fetchName() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      final doc =
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .get();
-      setState(() {
-        fetchedName = doc['name'];
-      });
+      try {
+        final doc =
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(user.uid)
+                .get();
+        final data = doc.data() ?? {};
+        if (!mounted) return;
+        setState(() {
+          fetchedName = data['name']?.toString();
+        });
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not load your name. Check your connection.'),
+          ),
+        );
+      }
     }
+  }
+
+  String _networkErrorMessage(Object error) {
+    if (error is SocketException || error is TimeoutException) {
+      return 'Network error. Check your internet connection and try again.';
+    }
+
+    return 'Error: $error';
   }
 
   Future<void> pickImage(bool isNrc) async {
@@ -65,22 +85,24 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
 
   Future<String> uploadFileToSupabase(File file, String path) async {
     const bucket = 'verifications';
-    const supabaseUrl = 'https://rfqnervrhxzackrmuoec.supabase.co';
+    const supabaseUrl = 'https://ubnxtmypavqfixfuyakz.supabase.co';
     const supabaseKey =
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmcW5lcnZyaHh6YWNrcm11b2VjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxODUyMzAsImV4cCI6MjA2NTc2MTIzMH0.NywMytTREcK2onPcAY53tUDS0tvulCK0eeuRKXMXbNg'; // Replace with your anon/public key
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVibnh0bXlwYXZxZml4ZnV5YWt6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxNDIwOTAsImV4cCI6MjA5NTcxODA5MH0.EFGpwulSPqibSpDylclzQkZx8Yaf4ar85B51knqZUEg'; // Replace with your anon/public key
 
     final uploadUrl = '$supabaseUrl/storage/v1/object/$bucket/$path';
     final bytes = await file.readAsBytes();
 
-    final response = await http.post(
-      Uri.parse(uploadUrl),
-      headers: {
-        'Authorization': 'Bearer $supabaseKey',
-        'apikey': supabaseKey,
-        'Content-Type': 'application/octet-stream',
-      },
-      body: bytes,
-    );
+    final response = await http
+        .post(
+          Uri.parse(uploadUrl),
+          headers: {
+            'Authorization': 'Bearer $supabaseKey',
+            'apikey': supabaseKey,
+            'Content-Type': 'application/octet-stream',
+          },
+          body: bytes,
+        )
+        .timeout(const Duration(seconds: 30));
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       return '$supabaseUrl/storage/v1/object/public/$bucket/$path';
@@ -134,6 +156,7 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
             'profile_photo_url': profileUrl,
           });
 
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Verification submitted. Awaiting admin approval.'),
@@ -144,14 +167,15 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
         context,
         MaterialPageRoute(builder: (_) => HomePage()),
       );
-
-      Navigator.pop(context);
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      ).showSnackBar(SnackBar(content: Text(_networkErrorMessage(e))));
     } finally {
-      setState(() => isSubmitting = false);
+      if (mounted) {
+        setState(() => isSubmitting = false);
+      }
     }
   }
 

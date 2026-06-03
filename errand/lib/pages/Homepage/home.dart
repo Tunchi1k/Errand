@@ -1,8 +1,11 @@
 import 'dart:ui';
+import 'package:errand/pages/Login%20and%20Signup/login.dart';
+import 'package:errand/pages/profile/profile.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:iconsax/iconsax.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -62,15 +65,21 @@ class _HomePageeState extends State<HomePage> {
     User? user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       try {
-        DocumentSnapshot userDoc =
+        DocumentSnapshot<Map<String, dynamic>> userDoc =
             await FirebaseFirestore.instance
                 .collection('users')
                 .doc(user.uid)
                 .get();
+        final data = userDoc.data() ?? {};
+        if (!mounted) return;
         setState(() {
-          username = userDoc['name'];
-          role = userDoc['role'];
-          isVerified = userDoc['verified'] ?? false;
+          username =
+              data['name']?.toString() ??
+              user.displayName ??
+              user.email ??
+              "User";
+          role = data['role']?.toString();
+          isVerified = data['verified'] == true;
         });
       } catch (e) {
         print("Error fetching username: $e");
@@ -373,7 +382,7 @@ class _HomePageeState extends State<HomePage> {
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: const BoxDecoration(
-                color: Color.fromARGB(255, 11, 59, 84),
+                color: Color.fromARGB(255, 15, 59, 85),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -382,83 +391,133 @@ class _HomePageeState extends State<HomePage> {
                   const SizedBox(height: 15),
                   Text(
                     username ?? "User",
-                    style: const TextStyle(color: Colors.white, fontSize: 18),
+                    style: GoogleFonts.archivoBlack(
+                      color: Colors.white,
+                      fontSize: 18,
+                    ),
                   ),
-                  Text(
-                    role != null ? "Role: $role" : "",
-                    style: const TextStyle(color: Colors.white70),
-                  ),
-                  Text(
-                    isVerified ? "Verified" : "Not Verified",
-                    style: const TextStyle(color: Colors.white70),
+                  const SizedBox(height: 5),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        isVerified ? "Verified" : "Not Verified",
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: 8), // spacing between text and icon
+                      Icon(
+                        Icons.circle,
+                        color: isVerified ? Colors.green : Colors.red,
+                        size: 12, // you can adjust size as needed
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.home),
-              title: const Text('Home'),
+              leading: const Icon(Iconsax.home4),
+              title: Text('Home', style: GoogleFonts.archivo(fontSize: 16)),
               onTap: () => Navigator.pop(context),
             ),
             if (role == "Sender")
               ListTile(
                 leading: const Icon(Icons.assignment),
-                title: const Text('My Requests'),
+                title: Text(
+                  'My Requests',
+                  style: GoogleFonts.archivo(fontSize: 18),
+                ),
                 onTap: () {},
               ),
             if (role == "Runner")
               ListTile(
-                leading: const Icon(Icons.local_shipping),
-                title: const Text('My Deliveries'),
+                leading: const Icon(Icons.local_shipping_outlined),
+                title: Text(
+                  'My Deliveries',
+                  style: GoogleFonts.archivo(fontSize: 16),
+                ),
                 onTap: () {},
               ),
             ListTile(
-              leading: const Icon(Icons.account_balance_wallet),
-              title: const Text('Wallet'),
+              leading: const Icon(Icons.account_balance_wallet_outlined),
+              title: Text('Wallet', style: GoogleFonts.archivo(fontSize: 16)),
               onTap: () {},
             ),
             ListTile(
-              leading: const Icon(Icons.verified_user),
-              title: const Text('Verification Status'),
-              onTap: () {},
-            ),
-            ListTile(
-              leading: const Icon(Icons.edit),
-              title: const Text('Edit Profile'),
-              onTap: () {},
+              leading: const Icon(Iconsax.user),
+              title: Text('Profile', style: GoogleFonts.archivo(fontSize: 16)),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ProfilePage()),
+                );
+              },
             ),
             const Divider(),
             ListTile(
-              leading: const Icon(Icons.language),
-              title: const Text('Language'),
+              leading: const Icon(Icons.help_outline_outlined),
+              title: Text(
+                'Help Center',
+                style: GoogleFonts.archivo(fontSize: 16),
+              ),
               onTap: () {},
             ),
             ListTile(
-              leading: const Icon(Icons.help),
-              title: const Text('Help Center'),
+              leading: const Icon(Icons.policy_outlined),
+              title: Text(
+                'Terms & Policy',
+                style: GoogleFonts.archivo(fontSize: 16),
+              ),
               onTap: () {},
             ),
             ListTile(
-              leading: const Icon(Icons.policy),
-              title: const Text('Terms & Policy'),
-              onTap: () {},
-            ),
-            ListTile(
-              leading: const Icon(Icons.logout),
-              title: const Text('Logout'),
+              leading: const Icon(Iconsax.logout_14),
+              title: Text('Logout', style: GoogleFonts.archivo(fontSize: 16)),
               onTap: () async {
-                await FirebaseAuth.instance.signOut();
-                if (context.mounted) {
-                  Navigator.pushReplacementNamed(context, '/login');
+                final shouldLogout = await showDialog<bool>(
+                  context: context,
+                  builder:
+                      (context) => AlertDialog(
+                        title: const Text("Confirm Log out"),
+                        content: const Text("Are you sure you want to logout?"),
+                        actions: [
+                          TextButton(
+                            onPressed:
+                                () => Navigator.pop(context, false), // stay
+                            child: const Text("No"),
+                          ),
+                          TextButton(
+                            onPressed:
+                                () => Navigator.pop(context, true), // proceed
+                            child: const Text("Yes"),
+                          ),
+                        ],
+                      ),
+                );
+
+                if (shouldLogout == true) {
+                  await FirebaseAuth.instance.signOut();
+                  if (context.mounted) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const Login()),
+                    );
+                  }
                 }
               },
             ),
             if (role == "Runner" && !isVerified)
               ListTile(
-                leading: const Icon(Icons.warning, color: Colors.red),
-                title: const Text(
-                  "Complete Verification",
-                  style: TextStyle(color: Colors.red),
+                leading: const Icon(
+                  Icons.verified_outlined,
+                  color: Color.fromARGB(255, 0, 0, 0),
+                ),
+                title: Text(
+                  "Apply For Verification",
+                  style: GoogleFonts.archivo(fontSize: 16),
                 ),
                 onTap: () {},
               ),

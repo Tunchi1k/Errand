@@ -1,10 +1,11 @@
+import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:http/http.dart' as http;
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -16,9 +17,48 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  static const String _supabaseUrl = 'https://ubnxtmypavqfixfuyakz.supabase.co';
+  static const String _supabaseKey =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVibnh0bXlwYXZxZml4ZnV5YWt6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxNDIwOTAsImV4cCI6MjA5NTcxODA5MH0.EFGpwulSPqibSpDylclzQkZx8Yaf4ar85B51knqZUEg';
   User? user;
   Map<String, dynamic>? userData;
   File? _image;
+
+  String _profilePhotoUrl() {
+    final photoUrl = userData?['profilePhoto']?.toString() ?? '';
+    if (photoUrl.isEmpty) return '';
+    if (photoUrl.contains('<') || photoUrl.contains('YOUR_PROJECT_ID')) {
+      return '';
+    }
+
+    final version = userData?['profilePhotoUpdatedAt'];
+    if (version == null) return photoUrl;
+
+    final versionValue =
+        version is Timestamp
+            ? version.millisecondsSinceEpoch
+            : version.toString();
+    final separator = photoUrl.contains('?') ? '&' : '?';
+
+    return '$photoUrl${separator}v=$versionValue';
+  }
+
+  ImageProvider<Object> _profileImageProvider() {
+    if (_image != null) return FileImage(_image!);
+
+    final photoUrl = _profilePhotoUrl();
+    if (photoUrl.isNotEmpty) return NetworkImage(photoUrl);
+
+    return const AssetImage('images/user.jpg');
+  }
+
+  String _networkErrorMessage(Object error) {
+    if (error is SocketException || error is TimeoutException) {
+      return 'Network error. Check your internet connection and try again.';
+    }
+
+    return 'Error uploading image: $error';
+  }
 
   @override
   void initState() {
@@ -29,11 +69,26 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _getUserData() async {
     user = _auth.currentUser;
     if (user != null) {
-      DocumentSnapshot userDoc =
-          await _firestore.collection('users').doc(user!.uid).get();
-      setState(() {
-        userData = userDoc.data() as Map<String, dynamic>?;
-      });
+      try {
+        DocumentSnapshot userDoc =
+            await _firestore.collection('users').doc(user!.uid).get();
+        if (!mounted) return;
+        setState(() {
+          userData = userDoc.data() as Map<String, dynamic>?;
+        });
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Could not load profile. Check your connection and try again.',
+            ),
+          ),
+        );
+        setState(() {
+          userData = {};
+        });
+      }
     }
   }
 
@@ -88,28 +143,54 @@ class _ProfilePageState extends State<ProfilePage> {
         _image = imageFile;
       });
 
-      // Upload image to Firebase Storage
       try {
-        String filePath = 'profile_photos/${user!.uid}.jpg';
-        UploadTask uploadTask = FirebaseStorage.instance
-            .ref()
-            .child(filePath)
-            .putFile(imageFile);
+        final userId = user!.uid;
+        final updatedAt = DateTime.now().millisecondsSinceEpoch;
+        final fileName = "$userId-$updatedAt.jpg";
+        final bucket = 'userprofile';
 
-        TaskSnapshot snapshot = await uploadTask;
-        String downloadUrl = await snapshot.ref.getDownloadURL();
+        final bytes = await imageFile.readAsBytes();
 
-        // Update Firestore with the new profile picture URL
-        await _firestore.collection('users').doc(user!.uid).update({
-          'profilePhoto': downloadUrl,
-        });
+        final response = await http
+            .post(
+              Uri.parse('$_supabaseUrl/storage/v1/object/$bucket/$fileName'),
+              headers: {
+                'Authorization': 'Bearer $_supabaseKey',
+                'apikey': _supabaseKey,
+                'Content-Type': 'application/octet-stream',
+                'x-upsert': 'true',
+              },
+              body: bytes,
+            )
+            .timeout(const Duration(seconds: 30));
 
-        // Update local state
-        setState(() {
-          userData!['profilePhoto'] = downloadUrl;
-        });
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          final publicUrl =
+              '$_supabaseUrl/storage/v1/object/public/$bucket/$fileName';
+
+          await _firestore.collection('users').doc(userId).update({
+            'profilePhoto': publicUrl,
+            'profilePhotoUpdatedAt': updatedAt,
+          });
+
+          if (!mounted) return;
+          setState(() {
+            userData!['profilePhoto'] = publicUrl;
+            userData!['profilePhotoUpdatedAt'] = updatedAt;
+          });
+        } else {
+          debugPrint('Upload failed: ${response.body}');
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Upload failed: ${response.body}')),
+          );
+        }
       } catch (e) {
-        print("Error uploading image: $e");
+        debugPrint("Error uploading image: $e");
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(_networkErrorMessage(e))));
       }
     }
   }
@@ -119,6 +200,7 @@ class _ProfilePageState extends State<ProfilePage> {
       await _firestore.collection('users').doc(user!.uid).delete();
       await user!.delete();
       _auth.signOut();
+      if (!mounted) return;
       Navigator.pop(context);
     }
   }
@@ -140,11 +222,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   children: [
                     CircleAvatar(
                       radius: 50,
-                      backgroundImage:
-                          _image != null
-                              ? FileImage(_image!)
-                              : NetworkImage(userData!['profilePhoto'] ?? '')
-                                  as ImageProvider,
+                      backgroundImage: _profileImageProvider(),
                     ),
                     SizedBox(height: 10),
                     TextButton(

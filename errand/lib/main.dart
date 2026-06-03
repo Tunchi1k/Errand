@@ -1,6 +1,7 @@
 import 'package:errand/pages/Login%20and%20Signup/login.dart';
 
 import 'package:errand/pages/Notifications/notifications.dart';
+import 'package:errand/pages/Taskpage/post_task.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -24,6 +25,7 @@ class MyApp extends StatelessWidget {
       ),
       home: const Login(),
       routes: {
+        '/postErrand': (context) => const PostTaskPage(),
         '/notifications':
             (context) => NotificationScreen(
               userId: FirebaseAuth.instance.currentUser!.uid,

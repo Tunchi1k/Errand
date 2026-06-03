@@ -1,107 +1,226 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:iconsax/iconsax.dart';
 
 class PostTaskPage extends StatefulWidget {
   const PostTaskPage({super.key});
 
   @override
-  _PostTaskPageState createState() => _PostTaskPageState();
+  State<PostTaskPage> createState() => _PostTaskPageState();
 }
 
 class _PostTaskPageState extends State<PostTaskPage> {
-  final TextEditingController _descriptionController = TextEditingController();
-  final TextEditingController _fromController = TextEditingController();
-  final TextEditingController _toController = TextEditingController();
-  final TextEditingController _priceController = TextEditingController();
-  double _urgency = 5;
+  final _formKey = GlobalKey<FormState>();
+  final _titleController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _pickupController = TextEditingController();
+  final _dropoffController = TextEditingController();
+  final _priceController = TextEditingController();
+  final _notesController = TextEditingController();
 
-  void _searchForRunner() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => SearchingForRunnerPage()),
-    );
+  String _category = 'Delivery';
+  double _urgency = 3;
+  bool _isSubmitting = false;
+
+  final List<String> _categories = const [
+    'Delivery',
+    'Groceries',
+    'Documents',
+    'Laundry',
+    'Other',
+  ];
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _pickupController.dispose();
+    _dropoffController.dispose();
+    _priceController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _postErrand() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in before posting.')),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final price = double.parse(_priceController.text.trim());
+      final userDoc =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get();
+      final userData = userDoc.data() ?? {};
+
+      final errandRef = await FirebaseFirestore.instance
+          .collection('errands')
+          .add({
+            'title': _titleController.text.trim(),
+            'description': _descriptionController.text.trim(),
+            'category': _category,
+            'pickupLocation': _pickupController.text.trim(),
+            'dropoffLocation': _dropoffController.text.trim(),
+            'price': price,
+            'urgency': _urgency.round(),
+            'notes': _notesController.text.trim(),
+            'status': 'Active',
+            'senderId': user.uid,
+            'senderName': userData['name'] ?? user.displayName ?? 'Sender',
+            'runnerId': null,
+            'createdAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder:
+              (context) => SearchingForRunnerPage(errandId: errandRef.id),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not post errand: $e')));
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text(
-          "Post Task",
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.w500,
-            fontSize: 20,
-          ),
+        title: const Text(
+          'Post Errand',
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
         ),
         centerTitle: true,
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
         elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      body: SafeArea(
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
             children: [
-              SizedBox(height: 50),
               _buildTextField(
-                _descriptionController,
-                "Task Description",
-                Icons.assignment,
-                maxLines: 1,
+                controller: _titleController,
+                label: 'Errand title',
+                hint: 'Buy groceries, collect a package...',
+                icon: Iconsax.task_square,
+                validator:
+                    (value) =>
+                        value == null || value.trim().isEmpty
+                            ? 'Enter an errand title'
+                            : null,
               ),
-              SizedBox(height: 20),
-              _buildTextField(_fromController, "From", Icons.location_pin),
-              SizedBox(height: 20),
-              _buildTextField(_toController, "To", Icons.location_on),
-              SizedBox(height: 20),
+              const SizedBox(height: 16),
+              _buildCategoryPicker(),
+              const SizedBox(height: 16),
               _buildTextField(
-                _priceController,
-                "Price (ZMW)",
-                Icons.money_sharp,
-                isNumber: true,
+                controller: _descriptionController,
+                label: 'Description',
+                hint: 'Describe exactly what the runner should do',
+                icon: Iconsax.note_text,
+                maxLines: 4,
+                validator:
+                    (value) =>
+                        value == null || value.trim().length < 10
+                            ? 'Add at least 10 characters'
+                            : null,
               ),
-              SizedBox(height: 20),
-              Text(
-                "Urgency",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              const SizedBox(height: 16),
+              _buildTextField(
+                controller: _pickupController,
+                label: 'Pickup location',
+                hint: 'Where should the runner start?',
+                icon: Iconsax.location,
+                validator:
+                    (value) =>
+                        value == null || value.trim().isEmpty
+                            ? 'Enter pickup location'
+                            : null,
               ),
-              Slider(
-                value: _urgency,
-                min: 1,
-                max: 10,
-                divisions: 9,
-                label: _urgency.round().toString(),
-                activeColor: const Color.fromARGB(
-                  255,
-                  0,
-                  63,
-                  97,
-                ), // Change this to your desired color
-                inactiveColor: Colors.grey, // Change this to your desired color
-                onChanged: (value) {
-                  setState(() {
-                    _urgency = value;
-                  });
-                },
+              const SizedBox(height: 16),
+              _buildTextField(
+                controller: _dropoffController,
+                label: 'Drop-off location',
+                hint: 'Where should the runner deliver?',
+                icon: Iconsax.location_tick,
+                validator:
+                    (value) =>
+                        value == null || value.trim().isEmpty
+                            ? 'Enter drop-off location'
+                            : null,
               ),
-              SizedBox(height: 30),
-              Center(
-                child: ElevatedButton(
-                  onPressed: _searchForRunner,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color.fromARGB(255, 0, 63, 97),
-                    padding: EdgeInsets.symmetric(vertical: 14, horizontal: 40),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(60),
+              const SizedBox(height: 16),
+              _buildTextField(
+                controller: _priceController,
+                label: 'Runner pay',
+                hint: 'Amount in ZMW',
+                icon: Iconsax.money,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                validator: _validatePrice,
+              ),
+              const SizedBox(height: 18),
+              _buildUrgencySlider(),
+              const SizedBox(height: 18),
+              _buildTextField(
+                controller: _notesController,
+                label: 'Notes',
+                hint: 'Optional details, contact instructions, timing...',
+                icon: Iconsax.message_text,
+                maxLines: 3,
+              ),
+              const SizedBox(height: 28),
+              SizedBox(
+                height: 54,
+                child: ElevatedButton.icon(
+                  onPressed: _isSubmitting ? null : _postErrand,
+                  icon:
+                      _isSubmitting
+                          ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                          : const Icon(Iconsax.send_2, color: Colors.white),
+                  label: Text(
+                    _isSubmitting ? 'Posting...' : 'Post Errand',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  child: Text(
-                    "Find Runner",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color.fromARGB(255, 0, 63, 97),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
                     ),
                   ),
                 ),
@@ -113,55 +232,152 @@ class _PostTaskPageState extends State<PostTaskPage> {
     );
   }
 
-  Widget _buildTextField(
-    TextEditingController controller,
-    String label,
-    IconData icon, {
-    bool isNumber = false,
+  String? _validatePrice(String? value) {
+    final price = double.tryParse(value?.trim() ?? '');
+    if (price == null) return 'Enter a valid amount';
+    if (price <= 0) return 'Amount must be greater than zero';
+    return null;
+  }
+
+  Widget _buildCategoryPicker() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Category',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: _category,
+          items:
+              _categories
+                  .map(
+                    (category) => DropdownMenuItem(
+                      value: category,
+                      child: Text(category),
+                    ),
+                  )
+                  .toList(),
+          onChanged: (value) {
+            if (value != null) setState(() => _category = value);
+          },
+          decoration: _inputDecoration(
+            hint: 'Select category',
+            icon: Iconsax.category,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUrgencySlider() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Urgency',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+            Text(
+              '${_urgency.round()}/5',
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+        Slider(
+          value: _urgency,
+          min: 1,
+          max: 5,
+          divisions: 4,
+          activeColor: const Color.fromARGB(255, 0, 63, 97),
+          label: _urgency.round().toString(),
+          onChanged: (value) => setState(() => _urgency = value),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    TextInputType keyboardType = TextInputType.text,
     int maxLines = 1,
+    String? Function(String?)? validator,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.w500),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
-        TextField(
+        const SizedBox(height: 8),
+        TextFormField(
           controller: controller,
-          keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+          keyboardType: keyboardType,
           maxLines: maxLines,
-          decoration: InputDecoration(
-            hintText: label,
-            suffixIcon: Icon(icon, color: Colors.black),
-          ),
+          validator: validator,
+          decoration: _inputDecoration(hint: hint, icon: icon),
         ),
       ],
+    );
+  }
+
+  InputDecoration _inputDecoration({
+    required String hint,
+    required IconData icon,
+  }) {
+    return InputDecoration(
+      hintText: hint,
+      prefixIcon: Icon(icon, color: Colors.black54),
+      filled: true,
+      fillColor: const Color(0xFFF4F6F8),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(
+          color: Color.fromARGB(255, 0, 63, 97),
+          width: 1.4,
+        ),
+      ),
     );
   }
 }
 
 class SearchingForRunnerPage extends StatefulWidget {
-  const SearchingForRunnerPage({super.key});
+  const SearchingForRunnerPage({super.key, required this.errandId});
+
+  final String errandId;
 
   @override
-  _SearchingForRunnerPageState createState() => _SearchingForRunnerPageState();
+  State<SearchingForRunnerPage> createState() => _SearchingForRunnerPageState();
 }
 
 class _SearchingForRunnerPageState extends State<SearchingForRunnerPage>
     with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
+  late final AnimationController _controller;
+  late final Animation<double> _animation;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: Duration(seconds: 1),
-    )..repeat(reverse: false);
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
 
-    _animation = Tween<double>(begin: 0.6, end: 1.0).animate(_controller);
+    _animation = Tween<double>(begin: 0.4, end: 1).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
+    );
   }
 
   @override
@@ -173,70 +389,65 @@ class _SearchingForRunnerPageState extends State<SearchingForRunnerPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text(
-          "Search",
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-            fontSize: 22,
-          ),
+        title: const Text(
+          'Finding Runner',
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
         ),
         centerTitle: true,
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
         elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black),
       ),
       body: Center(
-        child: Stack(
-          alignment: Alignment(0, -0.3),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Align(
-              alignment: Alignment.center,
-              child: AnimatedBuilder(
-                animation: _animation,
-                builder: (context, child) {
-                  return Container(
-                    width: 380 * _animation.value,
-                    height: 750 * _animation.value,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.blue.withOpacity(
-                        0.3 * (1 - _animation.value),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-
-            Align(
-              alignment: Alignment.center,
-              child: Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color.fromARGB(255, 0, 63, 97),
-                ),
-                child: Center(
-                  child: Icon(
-                    Icons.directions_run,
-                    color: Colors.white,
-                    size: 40,
+            AnimatedBuilder(
+              animation: _animation,
+              builder: (context, child) {
+                return Container(
+                  width: 180 * _animation.value,
+                  height: 180 * _animation.value,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color.fromARGB(
+                      255,
+                      0,
+                      63,
+                      97,
+                    ).withOpacity(1 - _animation.value),
                   ),
+                  child: child,
+                );
+              },
+              child: const Center(
+                child: CircleAvatar(
+                  radius: 46,
+                  backgroundColor: Color.fromARGB(255, 0, 63, 97),
+                  child: Icon(Iconsax.routing_2, color: Colors.white, size: 40),
                 ),
               ),
             ),
-            // Keep the text inside the center but outside the animated circle
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 90),
-                child: Text(
-                  "Searching for a runner...",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-                ),
+            const SizedBox(height: 34),
+            const Text(
+              'Your errand is live',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 36),
+              child: Text(
+                'Runners can now see this request. Reference: ${widget.errandId}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.black54, fontSize: 15),
               ),
+            ),
+            const SizedBox(height: 28),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Back to Home'),
             ),
           ],
         ),
