@@ -1,4 +1,5 @@
 import 'package:errand/pages/Homepage/home.dart';
+import 'package:errand/pages/Earnings/earnings_dashboard.dart';
 import 'package:errand/pages/FindErrands/find_errands.dart';
 import 'package:errand/pages/Notifications/notifications.dart';
 import 'package:errand/pages/Taskpage/post_task.dart';
@@ -28,6 +29,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/postErrand': (context) => const PostTaskPage(),
         '/findErrands': (context) => const FindErrandsPage(),
+        '/earnings': (context) => const EarningsDashboardPage(),
         '/notifications':
             (context) => NotificationScreen(
               userId: FirebaseAuth.instance.currentUser!.uid,

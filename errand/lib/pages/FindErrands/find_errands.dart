@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:errand/pages/Homepage/home.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -12,26 +13,26 @@ class FindErrandsPage extends StatefulWidget {
 class _FindErrandsPageState extends State<FindErrandsPage> {
   static const List<String> _categories = [
     'All',
-    'Food Delivery',
-    'Shopping',
-    'Parcel Pickup',
-    'Printing',
+    'Delivery',
+    'Groceries',
+    'Documents',
+    'Laundry',
     'Other',
   ];
 
-  final _repository = MockErrandRepository();
+  final _repository = FirestoreErrandRepository();
   final TextEditingController _searchController = TextEditingController();
+  Stream<List<Errand>>? _errandsStream;
 
-  RunnerStats? _stats;
-  List<Errand> _errands = const [];
   String _selectedCategory = 'All';
   String _searchQuery = '';
-  bool _isLoading = true;
+  bool _hasActiveFloats = true;
 
   @override
   void initState() {
     super.initState();
-    _loadErrands();
+    _resetErrandsStream();
+    _loadFloatEligibility();
   }
 
   @override
@@ -40,19 +41,30 @@ class _FindErrandsPageState extends State<FindErrandsPage> {
     super.dispose();
   }
 
-  Future<void> _loadErrands() async {
-    final result = await _repository.fetchAvailableErrands();
+  Future<void> _loadFloatEligibility() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final snapshot =
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
     if (!mounted) return;
 
+    final floats = snapshot.data()?['floats'];
     setState(() {
-      _stats = result.stats;
-      _errands = result.errands;
-      _isLoading = false;
+      _hasActiveFloats = floats is num && floats > 0;
     });
   }
 
-  List<Errand> get _filteredErrands {
-    return _errands.where((errand) {
+  void _resetErrandsStream() {
+    _errandsStream = _repository.watchAvailableErrands();
+  }
+
+  Stream<List<Errand>> _currentErrandsStream() {
+    return _errandsStream ??= _repository.watchAvailableErrands();
+  }
+
+  List<Errand> _filterErrands(List<Errand> errands) {
+    return errands.where((errand) {
       final matchesCategory =
           _selectedCategory == 'All' || errand.category == _selectedCategory;
       final normalizedQuery = _searchQuery.trim().toLowerCase();
@@ -77,21 +89,11 @@ class _FindErrandsPageState extends State<FindErrandsPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final stats =
-        _stats ??
-        const RunnerStats(
-          availableErrands: 12,
-          todayEarnings: 'K85',
-          rating: '4.8',
-          floatBalance: 10,
-          hasActiveFloats: false,
-        );
-    final filteredErrands = _filteredErrands;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FB),
+      backgroundColor: const Color.fromARGB(255, 233, 233, 233),
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF6F8FB),
+        backgroundColor: const Color.fromARGB(255, 233, 233, 233),
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
@@ -99,114 +101,110 @@ class _FindErrandsPageState extends State<FindErrandsPage> {
           onPressed: _goHome,
           tooltip: 'Back',
         ),
-        title: const Text('Find Errands'),
+        title: const Text('Find errands'),
+        centerTitle: true,
         titleTextStyle: theme.textTheme.titleLarge?.copyWith(
           color: const Color(0xFF111827),
           fontWeight: FontWeight.w800,
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none_outlined),
-            onPressed: _openNotifications,
-            tooltip: 'Notifications',
-          ),
-          const SizedBox(width: 8),
-        ],
       ),
       body: SafeArea(
-        child:
-            _isLoading
-                ? const _FindErrandsSkeleton()
-                : RefreshIndicator(
-                  onRefresh: _loadErrands,
-                  child: CustomScrollView(
-                    slivers: [
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-                        sliver: SliverList(
-                          delegate: SliverChildListDelegate([
-                            if (!stats.hasActiveFloats) ...[
-                              _FloatEligibilityBanner(
-                                onBuyFloats: _showFloatPurchasePlaceholder,
-                              ),
-                              const SizedBox(height: 18),
-                            ],
+        child: StreamBuilder<List<Errand>>(
+          stream: _currentErrandsStream(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const _FindErrandsSkeleton();
+            }
 
-                            // Search and category filters.
-                            _SearchField(
-                              controller: _searchController,
-                              onChanged:
-                                  (value) => setState(() {
-                                    _searchQuery = value;
-                                  }),
-                            ),
-                            const SizedBox(height: 16),
-                            _CategoryFilterBar(
-                              categories: _categories,
-                              selectedCategory: _selectedCategory,
-                              onSelected:
-                                  (category) => setState(() {
-                                    _selectedCategory = category;
-                                  }),
-                            ),
-                            const SizedBox(height: 20),
+            if (snapshot.hasError) {
+              return _ErrorState(
+                onRetry: () {
+                  setState(() {
+                    _resetErrandsStream();
+                  });
+                },
+              );
+            }
 
-                            // Runner summary.
-                            _RunnerStatsCard(stats: stats),
-                            const SizedBox(height: 26),
+            final errands = snapshot.data ?? const <Errand>[];
+            final filteredErrands = _filterErrands(errands);
 
-                            // Recommended errand.
-                            _SectionHeader(title: 'Recommended For You'),
-                            const SizedBox(height: 12),
-                            if (_errands.isNotEmpty)
-                              _RecommendedErrandCard(errand: _errands.first),
-                            const SizedBox(height: 28),
-
-                            // Available errands.
-                            _SectionHeader(title: 'Available Errands'),
-                            const SizedBox(height: 12),
-                          ]),
-                        ),
-                      ),
-                      if (filteredErrands.isEmpty)
-                        const SliverFillRemaining(
-                          hasScrollBody: false,
-                          child: _EmptyErrandsState(),
-                        )
-                      else
-                        SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
-                          sliver: SliverList(
-                            delegate: SliverChildBuilderDelegate((
-                              context,
-                              index,
-                            ) {
-                              if (index.isOdd) {
-                                return const SizedBox(height: 14);
-                              }
-
-                              return _ErrandCard(
-                                errand: filteredErrands[index ~/ 2],
-                              );
-                            }, childCount: filteredErrands.length * 2 - 1),
+            return RefreshIndicator(
+              onRefresh: _loadFloatEligibility,
+              child: CustomScrollView(
+                slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate([
+                        if (!_hasActiveFloats) ...[
+                          _FloatEligibilityBanner(
+                            onBuyFloats: _showFloatPurchasePlaceholder,
                           ),
+                          const SizedBox(height: 18),
+                        ],
+
+                        // Search and category filters.
+                        _SearchField(
+                          controller: _searchController,
+                          onChanged:
+                              (value) => setState(() {
+                                _searchQuery = value;
+                              }),
                         ),
-                    ],
+                        const SizedBox(height: 16),
+                        _CategoryFilterBar(
+                          categories: _categories,
+                          selectedCategory: _selectedCategory,
+                          onSelected:
+                              (category) => setState(() {
+                                _selectedCategory = category;
+                              }),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Recommended errand.
+                        _SectionHeader(title: 'Recommended For You'),
+                        const SizedBox(height: 12),
+                        if (errands.isNotEmpty)
+                          _RecommendedErrandCard(errand: errands.first)
+                        else
+                          const _CompactEmptyRecommendedCard(),
+                        const SizedBox(height: 28),
+
+                        // Available errands.
+                        _SectionHeader(title: 'Available Errands'),
+                        const SizedBox(height: 12),
+                      ]),
+                    ),
                   ),
-                ),
+                  if (filteredErrands.isEmpty)
+                    const SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: _EmptyErrandsState(),
+                    )
+                  else
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate((context, index) {
+                          if (index.isOdd) {
+                            return const SizedBox(height: 14);
+                          }
+
+                          return _ErrandCard(
+                            errand: filteredErrands[index ~/ 2],
+                          );
+                        }, childCount: filteredErrands.length * 2 - 1),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
-  }
-
-  void _openNotifications() {
-    if (FirebaseAuth.instance.currentUser == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sign in to view notifications.')),
-      );
-      return;
-    }
-
-    Navigator.pushNamed(context, '/notifications');
   }
 
   void _showFloatPurchasePlaceholder() {
@@ -244,121 +242,88 @@ class Errand {
   final String estimatedTime;
 
   factory Errand.fromFirestore(String id, Map<String, dynamic> data) {
+    final price = data['price'];
+    final createdAt = data['createdAt'];
+    final urgency = data['urgency'];
+
     return Errand(
       id: id,
       category: data['category']?.toString() ?? 'Other',
       title: data['title']?.toString() ?? 'Untitled Errand',
       description: data['description']?.toString() ?? '',
       pickupLocation: data['pickupLocation']?.toString() ?? '',
-      deliveryLocation: data['deliveryLocation']?.toString() ?? '',
-      reward: data['reward']?.toString() ?? 'K0',
-      distance: data['distance']?.toString() ?? '0 km',
-      postedAgo: data['postedAgo']?.toString() ?? 'Just now',
+      deliveryLocation:
+          data['dropoffLocation']?.toString() ??
+          data['deliveryLocation']?.toString() ??
+          '',
+      reward: _formatReward(price),
+      distance: data['distance']?.toString() ?? 'Nearby',
+      postedAgo: _formatPostedAgo(createdAt),
       senderRating: (data['senderRating'] as num?)?.toDouble() ?? 0,
-      estimatedTime: data['estimatedTime']?.toString() ?? '30 min',
+      estimatedTime:
+          data['estimatedTime']?.toString() ?? _estimateTimeFromUrgency(urgency),
     );
+  }
+
+  static String _formatReward(dynamic price) {
+    if (price is! num) return 'K0';
+
+    final hasDecimals = price % 1 != 0;
+    return 'K${price.toStringAsFixed(hasDecimals ? 2 : 0)}';
+  }
+
+  static String _formatPostedAgo(dynamic createdAt) {
+    if (createdAt is! Timestamp) return 'Just now';
+
+    final difference = DateTime.now().difference(createdAt.toDate());
+    if (difference.inMinutes < 1) return 'Just now';
+    if (difference.inMinutes < 60) {
+      return '${difference.inMinutes} minutes ago';
+    }
+    if (difference.inHours < 24) return '${difference.inHours} hours ago';
+
+    return '${difference.inDays} days ago';
+  }
+
+  static String _estimateTimeFromUrgency(dynamic urgency) {
+    final level = urgency is num ? urgency.round() : 3;
+    if (level >= 5) return '15 min';
+    if (level >= 4) return '25 min';
+    if (level >= 2) return '35 min';
+    return '45 min';
   }
 }
 
-class RunnerStats {
-  const RunnerStats({
-    required this.availableErrands,
-    required this.todayEarnings,
-    required this.rating,
-    required this.floatBalance,
-    required this.hasActiveFloats,
-  });
-
-  final int availableErrands;
-  final String todayEarnings;
-  final String rating;
-  final int floatBalance;
-  final bool hasActiveFloats;
-}
-
-class ErrandFeed {
-  const ErrandFeed({required this.stats, required this.errands});
-
-  final RunnerStats stats;
-  final List<Errand> errands;
-}
-
 abstract class ErrandRepository {
-  Future<ErrandFeed> fetchAvailableErrands();
+  Stream<List<Errand>> watchAvailableErrands();
 }
 
-class MockErrandRepository implements ErrandRepository {
-  @override
-  Future<ErrandFeed> fetchAvailableErrands() async {
-    await Future<void>.delayed(const Duration(milliseconds: 900));
+class FirestoreErrandRepository implements ErrandRepository {
+  const FirestoreErrandRepository();
 
-    return const ErrandFeed(
-      stats: RunnerStats(
-        availableErrands: 12,
-        todayEarnings: 'K85',
-        rating: '4.8',
-        floatBalance: 10,
-        hasActiveFloats: false,
-      ),
-      errands: [
-        Errand(
-          id: 'errand-1',
-          category: 'Food Delivery',
-          title: 'Food Pickup',
-          description:
-              'Pick up lunch from Campus Mall and deliver it to the School of Engineering.',
-          pickupLocation: 'Campus Mall',
-          deliveryLocation: 'School of Engineering',
-          reward: 'K25',
-          distance: '1.2 km',
-          postedAgo: '3 minutes ago',
-          senderRating: 4.9,
-          estimatedTime: '20 min',
-        ),
-        Errand(
-          id: 'errand-2',
-          category: 'Shopping',
-          title: 'Grocery Run',
-          description:
-              'Buy listed groceries from FreshMart and deliver them to Hostel Block B.',
-          pickupLocation: 'FreshMart',
-          deliveryLocation: 'Hostel Block B',
-          reward: 'K40',
-          distance: '2.8 km',
-          postedAgo: '8 minutes ago',
-          senderRating: 4.7,
-          estimatedTime: '35 min',
-        ),
-        Errand(
-          id: 'errand-3',
-          category: 'Printing',
-          title: 'Print Assignment',
-          description:
-              'Print and bind a 25-page report, then deliver it to the library entrance.',
-          pickupLocation: 'Print Hub',
-          deliveryLocation: 'Main Library',
-          reward: 'K18',
-          distance: '0.7 km',
-          postedAgo: '14 minutes ago',
-          senderRating: 4.8,
-          estimatedTime: '15 min',
-        ),
-        Errand(
-          id: 'errand-4',
-          category: 'Parcel Pickup',
-          title: 'Collect Package',
-          description:
-              'Collect a small parcel from the courier desk and deliver it to Admin Block.',
-          pickupLocation: 'Courier Desk',
-          deliveryLocation: 'Admin Block',
-          reward: 'K30',
-          distance: '1.9 km',
-          postedAgo: '22 minutes ago',
-          senderRating: 5.0,
-          estimatedTime: '25 min',
-        ),
-      ],
-    );
+  @override
+  Stream<List<Errand>> watchAvailableErrands() {
+    return FirebaseFirestore.instance
+        .collection('errands')
+        .where('status', isEqualTo: 'Active')
+        .snapshots()
+        .map((snapshot) {
+          final docs = [...snapshot.docs];
+          docs.sort((a, b) {
+            final aCreatedAt = a.data()['createdAt'];
+            final bCreatedAt = b.data()['createdAt'];
+
+            if (aCreatedAt is Timestamp && bCreatedAt is Timestamp) {
+              return bCreatedAt.compareTo(aCreatedAt);
+            }
+
+            return 0;
+          });
+
+          return docs
+              .map((doc) => Errand.fromFirestore(doc.id, doc.data()))
+              .toList();
+        });
   }
 }
 
@@ -384,13 +349,13 @@ class _SearchField extends StatelessWidget {
           vertical: 16,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(30),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(30),
           borderSide: BorderSide(
-            color: Theme.of(context).colorScheme.primary,
+            color: const Color.fromARGB(255, 46, 46, 46),
             width: 1.4,
           ),
         ),
@@ -412,34 +377,48 @@ class _CategoryFilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return SizedBox(
-      height: 42,
+      height: 44,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: categories.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        separatorBuilder: (_, __) => const SizedBox(width: 22),
         itemBuilder: (context, index) {
           final category = categories[index];
           final selected = category == selectedCategory;
 
-          return FilterChip(
-            label: Text(category),
-            selected: selected,
-            onSelected: (_) => onSelected(category),
-            showCheckmark: false,
-            labelStyle: TextStyle(
-              color: selected ? colorScheme.onPrimary : const Color(0xFF374151),
-              fontWeight: FontWeight.w700,
-            ),
-            selectedColor: colorScheme.primary,
-            backgroundColor: Colors.white,
-            side: BorderSide(
-              color: selected ? colorScheme.primary : const Color(0xFFE5E7EB),
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
+          return InkWell(
+            onTap: () => onSelected(category),
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    category,
+                    style: TextStyle(
+                      color:
+                          selected
+                              ? const Color.fromARGB(255, 0, 63, 97)
+                              : const Color(0xFF6B7280),
+                      fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
+                      fontSize: 15,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOut,
+                    width: selected ? 26 : 0,
+                    height: 3,
+                    decoration: BoxDecoration(
+                      color: const Color.fromARGB(255, 0, 63, 97),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         },
@@ -503,124 +482,6 @@ class _FloatEligibilityBanner extends StatelessWidget {
   }
 }
 
-class _RunnerStatsCard extends StatelessWidget {
-  const _RunnerStatsCard({required this.stats});
-
-  final RunnerStats stats;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x14000000),
-            blurRadius: 22,
-            offset: Offset(0, 10),
-          ),
-        ],
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final compact = constraints.maxWidth < 360;
-
-          return GridView(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: compact ? 2 : 4,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: compact ? 1.8 : 1.12,
-            ),
-            children: [
-              _StatTile(
-                label: 'Available Errands',
-                value: stats.availableErrands.toString(),
-                icon: Icons.assignment_outlined,
-                color: const Color(0xFF2563EB),
-              ),
-              _StatTile(
-                label: "Today's Earnings",
-                value: stats.todayEarnings,
-                icon: Icons.account_balance_wallet_outlined,
-                color: const Color(0xFF059669),
-              ),
-              _StatTile(
-                label: 'Rating',
-                value: stats.rating,
-                icon: Icons.star_border_rounded,
-                color: const Color(0xFFF59E0B),
-              ),
-              _StatTile(
-                label: 'Float Balance',
-                value: stats.floatBalance.toString(),
-                icon: Icons.toll_outlined,
-                color: const Color(0xFF7C3AED),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _StatTile extends StatelessWidget {
-  const _StatTile({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.color,
-  });
-
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.09),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Icon(icon, color: color, size: 22),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF111827),
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          Text(
-            label,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF6B7280),
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.title});
 
@@ -633,6 +494,7 @@ class _SectionHeader extends StatelessWidget {
       style: Theme.of(context).textTheme.titleMedium?.copyWith(
         color: const Color(0xFF111827),
         fontWeight: FontWeight.w900,
+        fontSize: 23
       ),
     );
   }
@@ -648,7 +510,7 @@ class _RecommendedErrandCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF102A43),
+        color: const Color(0xFF111827),
         borderRadius: BorderRadius.circular(22),
         boxShadow: const [
           BoxShadow(
@@ -711,7 +573,7 @@ class _RecommendedErrandCard extends StatelessWidget {
             child: FilledButton(
               onPressed: () {},
               style: FilledButton.styleFrom(
-                backgroundColor: Colors.white,
+                backgroundColor: const Color.fromARGB(255, 187, 187, 187),
                 foregroundColor: const Color(0xFF102A43),
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
@@ -722,6 +584,31 @@ class _RecommendedErrandCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _CompactEmptyRecommendedCard extends StatelessWidget {
+  const _CompactEmptyRecommendedCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: const Text(
+        'New recommendations will appear when errands are posted.',
+        style: TextStyle(
+          color: Color(0xFF6B7280),
+          fontWeight: FontWeight.w700,
+          height: 1.4,
+        ),
       ),
     );
   }
@@ -770,7 +657,7 @@ class _ErrandCard extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             errand.description,
-            style: const TextStyle(color: Color(0xFF4B5563), height: 1.4),
+            style: const TextStyle(color: Color.fromARGB(255, 0, 0, 0), height: 1.4),
           ),
           const SizedBox(height: 14),
           _LocationRow(
@@ -796,6 +683,8 @@ class _ErrandCard extends StatelessWidget {
             child: FilledButton.tonal(
               onPressed: () {},
               style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF102A43),
+                foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -826,7 +715,7 @@ class _CategoryBadge extends StatelessWidget {
       child: Text(
         category,
         style: const TextStyle(
-          color: Color(0xFF1D4ED8),
+          color: Color.fromARGB(255, 10, 30, 85),
           fontSize: 12,
           fontWeight: FontWeight.w800,
         ),
@@ -846,13 +735,13 @@ class _RewardPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: dark ? const Color(0xFF22C55E) : const Color(0xFFECFDF5),
+        color: dark ? const Color(0x1AFFFFFF) : const Color(0xFF102A43),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Text(
         reward,
         style: TextStyle(
-          color: dark ? Colors.white : const Color(0xFF047857),
+          color: Colors.white,
           fontSize: 15,
           fontWeight: FontWeight.w900,
         ),
@@ -1038,6 +927,49 @@ class _EmptyErrandsState extends StatelessWidget {
   }
 }
 
+class _ErrorState extends StatelessWidget {
+  const _ErrorState({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.cloud_off_outlined,
+              color: Color(0xFF9CA3AF),
+              size: 58,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Could not load available errands.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFF111827),
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Please check your connection and try again.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Color(0xFF6B7280), height: 1.4),
+            ),
+            const SizedBox(height: 18),
+            FilledButton(onPressed: onRetry, child: const Text('Retry')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _FindErrandsSkeleton extends StatelessWidget {
   const _FindErrandsSkeleton();
 
@@ -1054,8 +986,6 @@ class _FindErrandsSkeleton extends StatelessWidget {
           SizedBox(height: 16),
           _SkeletonRow(),
           SizedBox(height: 20),
-          _SkeletonBox(height: 178, radius: 20),
-          SizedBox(height: 26),
           _SkeletonBox(width: 190, height: 22, radius: 8),
           SizedBox(height: 12),
           _SkeletonBox(height: 232, radius: 22),
