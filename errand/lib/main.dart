@@ -1,4 +1,5 @@
 import 'package:errand/pages/Homepage/home.dart';
+import 'package:errand/pages/FindErrands/find_errands.dart';
 import 'package:errand/pages/Notifications/notifications.dart';
 import 'package:errand/pages/Taskpage/post_task.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -20,11 +21,13 @@ class MyApp extends StatelessWidget {
       title: 'errand',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
+        useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
       home: const HomePage(),
       routes: {
         '/postErrand': (context) => const PostTaskPage(),
+        '/findErrands': (context) => const FindErrandsPage(),
         '/notifications':
             (context) => NotificationScreen(
               userId: FirebaseAuth.instance.currentUser!.uid,
