@@ -139,9 +139,9 @@ class _PostTaskPageState extends State<PostTaskPage> {
               _buildTextField(
                 controller: _descriptionController,
                 label: 'Description',
-                hint: 'Describe exactly what the runner should do',
+                hint: 'What should the runner do?',
                 icon: Iconsax.note_text,
-                maxLines: 4,
+                maxLines: 1,
                 validator:
                     (value) =>
                         value == null || value.trim().length < 10
@@ -184,7 +184,6 @@ class _PostTaskPageState extends State<PostTaskPage> {
                 validator: _validatePrice,
               ),
               const SizedBox(height: 18),
-              _buildUrgencySlider(),
               const SizedBox(height: 18),
               _buildTextField(
                 controller: _notesController,
@@ -271,35 +270,6 @@ class _PostTaskPageState extends State<PostTaskPage> {
     );
   }
 
-  Widget _buildUrgencySlider() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Urgency',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-            ),
-            Text(
-              '${_urgency.round()}/5',
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-          ],
-        ),
-        Slider(
-          value: _urgency,
-          min: 1,
-          max: 5,
-          divisions: 4,
-          activeColor: const Color.fromARGB(255, 0, 63, 97),
-          label: _urgency.round().toString(),
-          onChanged: (value) => setState(() => _urgency = value),
-        ),
-      ],
-    );
-  }
 
   Widget _buildTextField({
     required TextEditingController controller,

@@ -1,5 +1,4 @@
-import 'package:errand/pages/Login%20and%20Signup/login.dart';
-
+import 'package:errand/pages/Homepage/home.dart';
 import 'package:errand/pages/Notifications/notifications.dart';
 import 'package:errand/pages/Taskpage/post_task.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -23,7 +22,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: const Login(),
+      home: const HomePage(),
       routes: {
         '/postErrand': (context) => const PostTaskPage(),
         '/notifications':
