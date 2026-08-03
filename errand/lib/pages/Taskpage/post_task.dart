@@ -409,7 +409,7 @@ class _SearchingForRunnerPageState extends State<SearchingForRunnerPage>
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 36),
               child: Text(
-                'Runners can now see this request. Reference: ${widget.errandId}',
+                'Runners can now see this request',
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.black54, fontSize: 15),
               ),

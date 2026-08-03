@@ -143,7 +143,7 @@ class _SignUpState extends State<SignUp> {
                   TextField(
                     controller: nameController,
                     decoration: const InputDecoration(
-                      hintText: "enter full name",
+                      hintText: "Enter full name",
                       suffixIcon: Icon(Icons.person, color: Colors.black),
                     ),
                   ),
@@ -155,7 +155,7 @@ class _SignUpState extends State<SignUp> {
                   TextField(
                     controller: emailController,
                     decoration: const InputDecoration(
-                      hintText: "enter email",
+                      hintText: "Enter email",
                       suffixIcon: Icon(Icons.email, color: Colors.black),
                     ),
                   ),
@@ -168,7 +168,7 @@ class _SignUpState extends State<SignUp> {
                     controller: passwordController,
                     obscureText: true,
                     decoration: const InputDecoration(
-                      hintText: "enter password",
+                      hintText: "Enter password",
                       suffixIcon: Icon(Icons.lock, color: Colors.black),
                     ),
                   ),

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:errand/pages/FindErrands/errand_repository.dart';
 import 'package:errand/pages/Homepage/home.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -46,7 +47,10 @@ class _FindErrandsPageState extends State<FindErrandsPage> {
     if (user == null) return;
 
     final snapshot =
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
     if (!mounted) return;
 
     final floats = snapshot.data()?['floats'];
@@ -167,7 +171,10 @@ class _FindErrandsPageState extends State<FindErrandsPage> {
                         _SectionHeader(title: 'Recommended For You'),
                         const SizedBox(height: 12),
                         if (errands.isNotEmpty)
-                          _RecommendedErrandCard(errand: errands.first)
+                          _RecommendedErrandCard(
+                            errand: errands.first,
+                            onViewDetails: () => _openErrandDetails(errands.first),
+                          )
                         else
                           const _CompactEmptyRecommendedCard(),
                         const SizedBox(height: 28),
@@ -194,6 +201,10 @@ class _FindErrandsPageState extends State<FindErrandsPage> {
 
                           return _ErrandCard(
                             errand: filteredErrands[index ~/ 2],
+                            onViewDetails:
+                                () => _openErrandDetails(
+                                  filteredErrands[index ~/ 2],
+                                ),
                           );
                         }, childCount: filteredErrands.length * 2 - 1),
                       ),
@@ -212,119 +223,100 @@ class _FindErrandsPageState extends State<FindErrandsPage> {
       const SnackBar(content: Text('Float purchase will be available soon.')),
     );
   }
-}
 
-class Errand {
-  const Errand({
-    required this.id,
-    required this.category,
-    required this.title,
-    required this.description,
-    required this.pickupLocation,
-    required this.deliveryLocation,
-    required this.reward,
-    required this.distance,
-    required this.postedAgo,
-    required this.senderRating,
-    required this.estimatedTime,
-  });
-
-  final String id;
-  final String category;
-  final String title;
-  final String description;
-  final String pickupLocation;
-  final String deliveryLocation;
-  final String reward;
-  final String distance;
-  final String postedAgo;
-  final double senderRating;
-  final String estimatedTime;
-
-  factory Errand.fromFirestore(String id, Map<String, dynamic> data) {
-    final price = data['price'];
-    final createdAt = data['createdAt'];
-    final urgency = data['urgency'];
-
-    return Errand(
-      id: id,
-      category: data['category']?.toString() ?? 'Other',
-      title: data['title']?.toString() ?? 'Untitled Errand',
-      description: data['description']?.toString() ?? '',
-      pickupLocation: data['pickupLocation']?.toString() ?? '',
-      deliveryLocation:
-          data['dropoffLocation']?.toString() ??
-          data['deliveryLocation']?.toString() ??
-          '',
-      reward: _formatReward(price),
-      distance: data['distance']?.toString() ?? 'Nearby',
-      postedAgo: _formatPostedAgo(createdAt),
-      senderRating: (data['senderRating'] as num?)?.toDouble() ?? 0,
-      estimatedTime:
-          data['estimatedTime']?.toString() ?? _estimateTimeFromUrgency(urgency),
+  void _openErrandDetails(Errand errand) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder:
+          (context) => _ErrandDetailsSheet(
+            errand: errand,
+            onAccept: () => _acceptErrand(context, errand),
+          ),
     );
   }
 
-  static String _formatReward(dynamic price) {
-    if (price is! num) return 'K0';
-
-    final hasDecimals = price % 1 != 0;
-    return 'K${price.toStringAsFixed(hasDecimals ? 2 : 0)}';
-  }
-
-  static String _formatPostedAgo(dynamic createdAt) {
-    if (createdAt is! Timestamp) return 'Just now';
-
-    final difference = DateTime.now().difference(createdAt.toDate());
-    if (difference.inMinutes < 1) return 'Just now';
-    if (difference.inMinutes < 60) {
-      return '${difference.inMinutes} minutes ago';
+  Future<void> _acceptErrand(BuildContext sheetContext, Errand errand) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      _showFindErrandsSnackBar(
+        context,
+        message: 'Sign in to accept errands.',
+        isError: true,
+      );
+      return;
     }
-    if (difference.inHours < 24) return '${difference.inHours} hours ago';
 
-    return '${difference.inDays} days ago';
-  }
+    final result = await _repository.acceptErrand(
+      errandId: errand.id,
+      runnerId: user.uid,
+    );
+    if (!mounted) return;
 
-  static String _estimateTimeFromUrgency(dynamic urgency) {
-    final level = urgency is num ? urgency.round() : 3;
-    if (level >= 5) return '15 min';
-    if (level >= 4) return '25 min';
-    if (level >= 2) return '35 min';
-    return '45 min';
+    if (sheetContext.mounted) Navigator.pop(sheetContext);
+    await _loadFloatEligibility();
+
+    final message = switch (result) {
+      AcceptErrandResult.accepted => 'Errand accepted. Check My Deliveries.',
+      AcceptErrandResult.noFloats =>
+        'You need active floats to accept errands.',
+      AcceptErrandResult.activeErrandExists =>
+        'Complete your active delivery before accepting another.',
+      AcceptErrandResult.errandUnavailable =>
+        'This errand is no longer available.',
+      AcceptErrandResult.userNotFound => 'Could not verify your runner account.',
+    };
+
+    _showFindErrandsSnackBar(
+      context,
+      message: message,
+      isError: result != AcceptErrandResult.accepted,
+    );
   }
 }
 
-abstract class ErrandRepository {
-  Stream<List<Errand>> watchAvailableErrands();
-}
-
-class FirestoreErrandRepository implements ErrandRepository {
-  const FirestoreErrandRepository();
-
-  @override
-  Stream<List<Errand>> watchAvailableErrands() {
-    return FirebaseFirestore.instance
-        .collection('errands')
-        .where('status', isEqualTo: 'Active')
-        .snapshots()
-        .map((snapshot) {
-          final docs = [...snapshot.docs];
-          docs.sort((a, b) {
-            final aCreatedAt = a.data()['createdAt'];
-            final bCreatedAt = b.data()['createdAt'];
-
-            if (aCreatedAt is Timestamp && bCreatedAt is Timestamp) {
-              return bCreatedAt.compareTo(aCreatedAt);
-            }
-
-            return 0;
-          });
-
-          return docs
-              .map((doc) => Errand.fromFirestore(doc.id, doc.data()))
-              .toList();
-        });
-  }
+void _showFindErrandsSnackBar(
+  BuildContext context, {
+  required String message,
+  bool isError = false,
+}) {
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              isError ? Icons.error_outline : Icons.check_circle_outline,
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor:
+            isError ? const Color(0xFF991B1B) : const Color(0xFF102A43),
+        elevation: 0,
+        margin: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        duration: const Duration(seconds: 3),
+      ),
+    );
 }
 
 class _SearchField extends StatelessWidget {
@@ -494,16 +486,20 @@ class _SectionHeader extends StatelessWidget {
       style: Theme.of(context).textTheme.titleMedium?.copyWith(
         color: const Color(0xFF111827),
         fontWeight: FontWeight.w900,
-        fontSize: 23
+        fontSize: 23,
       ),
     );
   }
 }
 
 class _RecommendedErrandCard extends StatelessWidget {
-  const _RecommendedErrandCard({required this.errand});
+  const _RecommendedErrandCard({
+    required this.errand,
+    required this.onViewDetails,
+  });
 
   final Errand errand;
+  final VoidCallback onViewDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -571,7 +567,7 @@ class _RecommendedErrandCard extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: FilledButton(
-              onPressed: () {},
+              onPressed: onViewDetails,
               style: FilledButton.styleFrom(
                 backgroundColor: const Color.fromARGB(255, 187, 187, 187),
                 foregroundColor: const Color(0xFF102A43),
@@ -615,9 +611,10 @@ class _CompactEmptyRecommendedCard extends StatelessWidget {
 }
 
 class _ErrandCard extends StatelessWidget {
-  const _ErrandCard({required this.errand});
+  const _ErrandCard({required this.errand, required this.onViewDetails});
 
   final Errand errand;
+  final VoidCallback onViewDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -657,7 +654,10 @@ class _ErrandCard extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             errand.description,
-            style: const TextStyle(color: Color.fromARGB(255, 0, 0, 0), height: 1.4),
+            style: const TextStyle(
+              color: Color.fromARGB(255, 0, 0, 0),
+              height: 1.4,
+            ),
           ),
           const SizedBox(height: 14),
           _LocationRow(
@@ -681,7 +681,7 @@ class _ErrandCard extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: FilledButton.tonal(
-              onPressed: () {},
+              onPressed: onViewDetails,
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF102A43),
                 foregroundColor: Colors.white,
@@ -840,11 +840,7 @@ class _LocationLine extends StatelessWidget {
 }
 
 class _MetaChip extends StatelessWidget {
-  const _MetaChip({
-    required this.icon,
-    required this.label,
-    this.dark = false,
-  });
+  const _MetaChip({required this.icon, required this.label, this.dark = false});
 
   final IconData icon;
   final String label;
@@ -965,6 +961,137 @@ class _ErrorState extends StatelessWidget {
             FilledButton(onPressed: onRetry, child: const Text('Retry')),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ErrandDetailsSheet extends StatelessWidget {
+  const _ErrandDetailsSheet({
+    required this.errand,
+    required this.onAccept,
+  });
+
+  final Errand errand;
+  final VoidCallback onAccept;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 18,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    errand.title,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: const Color(0xFF111827),
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                _RewardPill(reward: errand.reward),
+              ],
+            ),
+            const SizedBox(height: 8),
+            _CategoryBadge(category: errand.category),
+            const SizedBox(height: 16),
+            Text(
+              errand.description,
+              style: const TextStyle(color: Color(0xFF4B5563), height: 1.45),
+            ),
+            const SizedBox(height: 18),
+            _DetailRow(label: 'Pickup', value: errand.pickupLocation),
+            _DetailRow(label: 'Destination', value: errand.deliveryLocation),
+            _DetailRow(label: 'Requester', value: errand.senderName),
+            _DetailRow(label: 'Distance', value: errand.distance),
+            _DetailRow(label: 'Estimated Time', value: errand.estimatedTime),
+            _DetailRow(label: 'Posted', value: errand.postedAgo),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF102A43),
+                      side: const BorderSide(color: Color(0xFF102A43)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text('Decline'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: onAccept,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF102A43),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text('Accept'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 118,
+            child: Text(
+              '$label:',
+              style: const TextStyle(
+                color: Color(0xFF6B7280),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value.isEmpty ? 'Not set' : value,
+              style: const TextStyle(
+                color: Color(0xFF111827),
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

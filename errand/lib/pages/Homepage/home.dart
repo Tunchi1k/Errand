@@ -1,11 +1,10 @@
 import 'dart:ui';
-import 'package:errand/pages/Login%20and%20Signup/login.dart';
-import 'package:errand/pages/profile/profile.dart';
+import 'package:errand/pages/FindErrands/errand_repository.dart';
+import 'package:errand/pages/Homepage/homepage_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:iconsax/iconsax.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -16,6 +15,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageeState extends State<HomePage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final ErrandRepository _errandRepository = const FirestoreErrandRepository();
 
   int completedCount = 0;
   int activeCount = 0;
@@ -24,10 +24,12 @@ class _HomePageeState extends State<HomePage> {
   String? username;
   String? role;
   bool isVerified = false;
+  Stream<List<Errand>>? _activeErrandsStream;
 
   @override
   void initState() {
     super.initState();
+    _activeErrandsStream = _errandRepository.watchAvailableErrands();
     fetchUsername();
     fetchStats();
     sendWelcomeNotificationIfNeeded();
@@ -135,14 +137,18 @@ class _HomePageeState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
-      drawer: _buildDrawer(),
-      backgroundColor: Colors.white,
+      drawer: HomepageDrawer(
+        username: username,
+        role: role,
+        isVerified: isVerified,
+      ),
+      backgroundColor: const Color.fromARGB(255, 243, 243, 243),
       body: Stack(
         children: [
           NotificationListener<ScrollNotification>(
             onNotification: (_) => true,
             child: SingleChildScrollView(
-              padding: const EdgeInsets.only(top: 90),
+              padding: const EdgeInsets.only(top: 100),
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Column(
@@ -159,6 +165,7 @@ class _HomePageeState extends State<HomePage> {
                       crossAxisCount: 2,
                       crossAxisSpacing: 10,
                       mainAxisSpacing: 12,
+                      padding: const EdgeInsets.only(top: 20),
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       children: [
@@ -180,7 +187,7 @@ class _HomePageeState extends State<HomePage> {
                         _buildImageQuickAction(
                           'images/buy.png',
                           "",
-                          () => Navigator.pushNamed(context, '/history'),
+                          () => Navigator.pushNamed(context, '/buyFloats'),
                         ),
                       ],
                     ),
@@ -199,7 +206,7 @@ class _HomePageeState extends State<HomePage> {
                           child: _buildStatCard(
                             "Completed",
                             "$completedCount",
-                            Colors.teal,
+                            const Color(0xFF111827),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -207,7 +214,7 @@ class _HomePageeState extends State<HomePage> {
                           child: _buildStatCard(
                             "Active",
                             "$activeCount",
-                            Colors.orange,
+                            const Color(0xFF111827),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -215,7 +222,7 @@ class _HomePageeState extends State<HomePage> {
                           child: _buildStatCard(
                             "Floats",
                             "$floatsCount",
-                            Colors.indigo,
+                            const Color(0xFF111827),
                           ),
                         ),
                       ],
@@ -228,22 +235,8 @@ class _HomePageeState extends State<HomePage> {
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    _buildActivity(
-                      "Delivery to Dorm 4",
-                      "Pending",
-                      Icons.local_shipping,
-                    ),
-                    _buildActivity(
-                      "Pick-up Laundry",
-                      "Completed",
-                      Icons.local_laundry_service,
-                    ),
-                    _buildActivity(
-                      "Buy groceries",
-                      "In Progress",
-                      Icons.shopping_cart,
-                    ),
+                    const SizedBox(height: 14),
+                    _buildRecentActivities(),
                   ],
                 ),
               ),
@@ -270,17 +263,11 @@ class _HomePageeState extends State<HomePage> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            "Welcome Back",
+                            "errand.",
                             style: GoogleFonts.archivoBlack(
-                              fontSize: 15,
+                              fontSize: 20,
                               fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          Text(
-                            username ?? "User",
-                            style: GoogleFonts.archivoBlack(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF111827),
                             ),
                           ),
                         ],
@@ -371,162 +358,6 @@ class _HomePageeState extends State<HomePage> {
     );
   }
 
-  Widget _buildDrawer() {
-    return Drawer(
-      child: SafeArea(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            Container(
-              height: 200,
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
-                color: Color.fromARGB(255, 15, 59, 85),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const CircleAvatar(radius: 30, backgroundColor: Colors.white),
-                  const SizedBox(height: 15),
-                  Text(
-                    username ?? "User",
-                    style: GoogleFonts.archivoBlack(
-                      color: Colors.white,
-                      fontSize: 18,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        isVerified ? "Verified" : "Not Verified",
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(width: 8), // spacing between text and icon
-                      Icon(
-                        Icons.circle,
-                        color: isVerified ? Colors.green : Colors.red,
-                        size: 12, // you can adjust size as needed
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Iconsax.home4),
-              title: Text('Home', style: GoogleFonts.archivo(fontSize: 16)),
-              onTap: () => Navigator.pop(context),
-            ),
-            if (role == "Sender")
-              ListTile(
-                leading: const Icon(Icons.assignment),
-                title: Text(
-                  'My Requests',
-                  style: GoogleFonts.archivo(fontSize: 18),
-                ),
-                onTap: () {},
-              ),
-            if (role == "Runner")
-              ListTile(
-                leading: const Icon(Icons.local_shipping_outlined),
-                title: Text(
-                  'My Deliveries',
-                  style: GoogleFonts.archivo(fontSize: 16),
-                ),
-                onTap: () {},
-              ),
-            ListTile(
-              leading: const Icon(Icons.account_balance_wallet_outlined),
-              title: Text('Wallet', style: GoogleFonts.archivo(fontSize: 16)),
-              onTap: () {},
-            ),
-            ListTile(
-              leading: const Icon(Iconsax.user),
-              title: Text('Profile', style: GoogleFonts.archivo(fontSize: 16)),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const ProfilePage()),
-                );
-              },
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.help_outline_outlined),
-              title: Text(
-                'Help Center',
-                style: GoogleFonts.archivo(fontSize: 16),
-              ),
-              onTap: () {},
-            ),
-            ListTile(
-              leading: const Icon(Icons.policy_outlined),
-              title: Text(
-                'Terms & Policy',
-                style: GoogleFonts.archivo(fontSize: 16),
-              ),
-              onTap: () {},
-            ),
-            ListTile(
-              leading: const Icon(Iconsax.logout_14),
-              title: Text('Logout', style: GoogleFonts.archivo(fontSize: 16)),
-              onTap: () async {
-                final shouldLogout = await showDialog<bool>(
-                  context: context,
-                  builder:
-                      (context) => AlertDialog(
-                        title: const Text("Confirm Log out"),
-                        content: const Text("Are you sure you want to logout?"),
-                        actions: [
-                          TextButton(
-                            onPressed:
-                                () => Navigator.pop(context, false), // stay
-                            child: const Text("No"),
-                          ),
-                          TextButton(
-                            onPressed:
-                                () => Navigator.pop(context, true), // proceed
-                            child: const Text("Yes"),
-                          ),
-                        ],
-                      ),
-                );
-
-                if (shouldLogout == true) {
-                  await FirebaseAuth.instance.signOut();
-                  if (context.mounted) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const Login()),
-                    );
-                  }
-                }
-              },
-            ),
-            if (role == "Runner" && !isVerified)
-              ListTile(
-                leading: const Icon(
-                  Icons.verified_outlined,
-                  color: Color.fromARGB(255, 0, 0, 0),
-                ),
-                title: Text(
-                  "Apply For Verification",
-                  style: GoogleFonts.archivo(fontSize: 16),
-                ),
-                onTap: () {},
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildImageQuickAction(
     String imagePath,
     String label,
@@ -587,15 +418,133 @@ class _HomePageeState extends State<HomePage> {
     );
   }
 
-  Widget _buildActivity(String title, String status, IconData icon) {
+  Widget _buildRecentActivities() {
+    return StreamBuilder<List<Errand>>(
+      stream: _activeErrandsStream,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Column(
+            children: const [
+              _ActivitySkeletonCard(),
+              _ActivitySkeletonCard(),
+              _ActivitySkeletonCard(),
+            ],
+          );
+        }
+
+        if (snapshot.hasError) {
+          return _buildActivity(
+            "Could not load active errands",
+            "Please check your connection and try again.",
+            Icons.cloud_off_outlined,
+          );
+        }
+
+        final errands = (snapshot.data ?? const <Errand>[]).take(4).toList();
+
+        if (errands.isEmpty) {
+          return _buildActivity(
+            "No active errands",
+            "New active errands from Find Errands will show here.",
+            Icons.inventory_2_outlined,
+          );
+        }
+
+        return Column(
+          children:
+              errands.map((errand) {
+                final route =
+                    errand.deliveryLocation.isEmpty
+                        ? errand.pickupLocation
+                        : "${errand.pickupLocation} -> ${errand.deliveryLocation}";
+
+                return _buildActivity(
+                  errand.title,
+                  "Active | ${errand.reward} | $route | ${errand.postedAgo}",
+                  Icons.assignment_outlined,
+                  onTap: () => Navigator.pushNamed(context, '/findErrands'),
+                );
+              }).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _buildActivity(
+    String title,
+    String status,
+    IconData icon, {
+    VoidCallback? onTap,
+  }) {
+    return Card(
+      color: const Color.fromARGB(210, 17, 24, 39),
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: ListTile(
+        onTap: onTap,
+        leading: Icon(icon, color: const Color.fromARGB(133, 255, 255, 255)),
+        title: Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontWeight: FontWeight.w800,
+            color: Color.fromARGB(221, 255, 255, 255),
+          ),
+        ),
+        subtitle: Text(
+          status,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: Color.fromARGB(153, 255, 255, 255)),
+        ),
+        trailing:
+            onTap == null
+                ? null
+                : const Icon(
+                  Icons.arrow_forward_ios,
+                  size: 16,
+                  color: Color.fromARGB(255, 255, 255, 255),
+                ),
+      ),
+    );
+  }
+}
+
+class _ActivitySkeletonCard extends StatelessWidget {
+  const _ActivitySkeletonCard();
+
+  @override
+  Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        leading: Icon(icon, color: Colors.black54),
-        title: Text(title),
-        subtitle: Text(status),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+      child: const ListTile(
+        leading: CircleAvatar(backgroundColor: Color(0xFFE5E7EB)),
+        title: _SkeletonLine(widthFactor: 0.65),
+        subtitle: _SkeletonLine(widthFactor: 0.9),
+      ),
+    );
+  }
+}
+
+class _SkeletonLine extends StatelessWidget {
+  const _SkeletonLine({required this.widthFactor});
+
+  final double widthFactor;
+
+  @override
+  Widget build(BuildContext context) {
+    return FractionallySizedBox(
+      alignment: Alignment.centerLeft,
+      widthFactor: widthFactor,
+      child: Container(
+        height: 12,
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFFE5E7EB),
+          borderRadius: BorderRadius.circular(999),
+        ),
       ),
     );
   }
