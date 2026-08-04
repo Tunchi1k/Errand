@@ -1,35 +1,41 @@
 import 'dart:math' as math;
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 class EarningsDashboardPage extends StatelessWidget {
   const EarningsDashboardPage({super.key});
 
-  static const _summary = EarningsSummary(
-    totalEarnings: 'K1,250',
-    completedErrands: 45,
-    weeklyCompletedErrands: 6,
-    rating: '4.8',
-    acceptanceRate: '92%',
-    completionRate: '98%',
-    averageDeliveryTime: '18 min',
-    trendData: [80, 120, 95, 160, 210, 185, 240],
-  );
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Earnings')),
+        body: const Center(
+          child: Text('Sign in to view your earnings.'),
+        ),
+      );
+    }
+
+    final userDocStream = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .snapshots();
 
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 233, 233, 233),
       appBar: AppBar(
-          title: const Text('Earnings'),
-          leading: IconButton(
+        title: const Text('Earnings'),
+        leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           tooltip: 'Back',
           onPressed: () => Navigator.pop(context),
         ),
-        backgroundColor:const Color.fromARGB(255, 233, 233, 233),
+        backgroundColor: const Color.fromARGB(255, 233, 233, 233),
         elevation: 0,
         centerTitle: true,
         surfaceTintColor: Colors.transparent,
@@ -39,38 +45,70 @@ class EarningsDashboardPage extends StatelessWidget {
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Earnings growth visualization.
-              EarningsTrendChartWidget(values: _summary.trendData),
-              const SizedBox(height: 18),
+        child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+          stream: userDocStream,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-              // Main all-time earnings metric.
-              StatCardWidget(
-                label: 'Total Earnings',
-                value: _summary.totalEarnings,
-                subtitle: 'All-time earnings from completed errands',
-                icon: Icons.payments_outlined,
-                isPrimary: true,
+            if (snapshot.hasError) {
+              return const Center(child: Text('Could not load earnings.'));
+            }
+
+            final data = snapshot.data?.data() ?? {};
+            final num earningsNum = (data['earnings'] is num) ? data['earnings'] as num : 0;
+            final totalEarnings = 'K${earningsNum % 1 == 0 ? earningsNum.toInt() : earningsNum.toStringAsFixed(2)}';
+            final completedErrands = (data['completedErrands'] is int) ? data['completedErrands'] as int : (data['completedErrands'] is num ? (data['completedErrands'] as num).toInt() : 0);
+            final weeklyCompletedErrands = (data['weeklyCompletedErrands'] is int) ? data['weeklyCompletedErrands'] as int : 0;
+            final rating = data['rating']?.toString() ?? '—';
+            final acceptanceRate = data['acceptanceRate']?.toString() ?? '—';
+            final completionRate = data['completionRate']?.toString() ?? '—';
+            final averageDeliveryTime = data['averageDeliveryTime']?.toString() ?? '—';
+            final trendDataRaw = data['earningTrend'];
+            final List<num> trendData = trendDataRaw is List ? List<num>.from(trendDataRaw.map((e) => e is num ? e : 0)) : List<num>.filled(7, 0);
+
+            return SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  EarningsTrendChartWidget(values: trendData),
+                  const SizedBox(height: 18),
+
+                  StatCardWidget(
+                    label: 'Total Earnings',
+                    value: totalEarnings,
+                    subtitle: 'All-time earnings from completed errands',
+                    icon: Icons.payments_outlined,
+                    isPrimary: true,
+                  ),
+                  const SizedBox(height: 14),
+
+                  StatCardWidget(
+                    label: 'Completed Errands',
+                    value: completedErrands.toString(),
+                    subtitle: '+$weeklyCompletedErrands this week',
+                    icon: Icons.task_alt_outlined,
+                  ),
+                  const SizedBox(height: 14),
+
+                  PerformanceSummaryCard(
+                    summary: EarningsSummary(
+                      totalEarnings: totalEarnings,
+                      completedErrands: completedErrands,
+                      weeklyCompletedErrands: weeklyCompletedErrands,
+                      rating: rating,
+                      acceptanceRate: acceptanceRate,
+                      completionRate: completionRate,
+                      averageDeliveryTime: averageDeliveryTime,
+                      trendData: trendData,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 14),
-
-              // Activity volume metric.
-              StatCardWidget(
-                label: 'Completed Errands',
-                value: _summary.completedErrands.toString(),
-                subtitle: '+${_summary.weeklyCompletedErrands} this week',
-                icon: Icons.task_alt_outlined,
-              ),
-              const SizedBox(height: 14),
-
-              // Quality and progression summary.
-              PerformanceSummaryCard(summary: _summary),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );

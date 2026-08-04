@@ -244,8 +244,20 @@ class _FindErrandsPageState extends State<FindErrandsPage> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       _showFindErrandsSnackBar(
-        context,
+        sheetContext,
         message: 'Sign in to accept errands.',
+        isError: true,
+      );
+      return;
+    }
+
+    // Ensure only users with role 'Runner' can accept errands
+    final userSnapshot = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+    final role = userSnapshot.data()?['role']?.toString();
+    if (role != 'Runner') {
+      _showFindErrandsSnackBar(
+        sheetContext,
+        message: 'You are not a runner.',
         isError: true,
       );
       return;
@@ -973,7 +985,7 @@ class _ErrandDetailsSheet extends StatelessWidget {
   });
 
   final Errand errand;
-  final VoidCallback onAccept;
+  final Future<void> Function() onAccept;
 
   @override
   Widget build(BuildContext context) {
@@ -1037,24 +1049,61 @@ class _ErrandDetailsSheet extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: FilledButton(
-                    onPressed: onAccept,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF102A43),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    child: const Text('Accept'),
-                  ),
+                  child: _AcceptButton(onAccept: onAccept),
                 ),
               ],
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _AcceptButton extends StatefulWidget {
+  const _AcceptButton({required this.onAccept});
+
+  final Future<void> Function() onAccept;
+
+  @override
+  State<_AcceptButton> createState() => _AcceptButtonState();
+}
+
+class _AcceptButtonState extends State<_AcceptButton> {
+  bool _isLoading = false;
+
+  Future<void> _handlePress() async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
+    try {
+      await widget.onAccept();
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton(
+      onPressed: _isLoading ? null : _handlePress,
+      style: FilledButton.styleFrom(
+        backgroundColor: const Color(0xFF102A43),
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
+      ),
+      child: _isLoading
+          ? const SizedBox(
+              height: 18,
+              width: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            )
+          : const Text('Accept'),
     );
   }
 }

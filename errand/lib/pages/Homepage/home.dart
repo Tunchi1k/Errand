@@ -91,28 +91,9 @@ class _HomePageeState extends State<HomePage> {
 
   Future<void> fetchStats() async {
     try {
-      final errandsSnapshot =
-          await FirebaseFirestore.instance.collection('errands').get();
-
-      int completed = 0;
-      int active = 0;
-      double totalEarnings = 0.0;
-
-      for (var doc in errandsSnapshot.docs) {
-        final data = doc.data();
-        final status = data['status'];
-        final price = (data['price'] ?? 0).toDouble();
-
-        if (status == 'Completed') {
-          completed++;
-          totalEarnings += price;
-        } else if (status == 'Active') {
-          active++;
-        }
-      }
-
       final user = FirebaseAuth.instance.currentUser;
       int floats = 0;
+      Map<String, dynamic> stats = {};
       if (user != null) {
         final userDoc =
             await FirebaseFirestore.instance
@@ -120,7 +101,12 @@ class _HomePageeState extends State<HomePage> {
                 .doc(user.uid)
                 .get();
         floats = userDoc.data()?['floats'] ?? 0;
+        stats = userDoc.data() ?? {};
       }
+
+      final completed = stats['completed'] ?? 0;
+      final active = stats['active'] ?? 0;
+      final totalEarnings = (stats['totalEarnings'] ?? 0).toDouble();
 
       setState(() {
         completedCount = completed;

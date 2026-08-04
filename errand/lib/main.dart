@@ -3,6 +3,7 @@ import 'package:errand/pages/Homepage/home.dart';
 import 'package:errand/pages/Earnings/earnings_dashboard.dart';
 import 'package:errand/pages/FindErrands/find_errands.dart';
 import 'package:errand/pages/Floats/buy_floats.dart';
+import 'package:errand/pages/Login%20and%20Signup/verification.dart';
 import 'package:errand/pages/Notifications/notifications.dart';
 import 'package:errand/pages/Requests/my_requests.dart';
 import 'package:errand/pages/Taskpage/post_task.dart';
@@ -40,6 +41,7 @@ class MyApp extends StatelessWidget {
             (context) => NotificationScreen(
               userId: FirebaseAuth.instance.currentUser!.uid,
             ),
+        '/verification': (context) => const RunnerVerificationPage(),
       },
     );
   }

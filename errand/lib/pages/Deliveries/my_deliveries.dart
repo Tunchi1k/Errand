@@ -1,122 +1,14 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-class MyDeliveriesPage extends StatefulWidget {
+class MyDeliveriesPage extends StatelessWidget {
   const MyDeliveriesPage({super.key});
 
   @override
-  State<MyDeliveriesPage> createState() => _MyDeliveriesPageState();
-}
-
-class _MyDeliveriesPageState extends State<MyDeliveriesPage> {
-  Delivery? _activeDelivery = Delivery(
-    id: 'delivery-1',
-    title: 'Food Pickup',
-    category: 'Food Pickup',
-    requesterName: 'John Doe',
-    pickupLocation: 'Campus Mall',
-    destination: 'School of Engineering',
-    reward: 'K25',
-    status: DeliveryStatus.headingToPickup,
-    completedDate: null,
-  );
-
-  final List<Delivery> _completedDeliveries = [
-    Delivery(
-      id: 'delivery-2',
-      title: 'Print Assignment',
-      category: 'Printing',
-      requesterName: 'Sarah Banda',
-      pickupLocation: 'Print Hub',
-      destination: 'Main Library',
-      reward: 'K18',
-      status: DeliveryStatus.completed,
-      completedDate: 'Today',
-    ),
-  ];
-
-  double _totalEarnings = 1250;
-  int _completedErrands = 45;
-  double _performanceScore = 98;
-  int _floatBalance = 10;
-
-  void _advanceDeliveryStatus() {
-    final delivery = _activeDelivery;
-    if (delivery == null) return;
-
-    if (delivery.status == DeliveryStatus.delivered) {
-      _showCompleteDeliveryDialog(delivery);
-      return;
-    }
-
-    setState(() {
-      _activeDelivery = delivery.copyWith(status: delivery.status.next);
-    });
-  }
-
-  Future<void> _showCompleteDeliveryDialog(Delivery delivery) async {
-    final shouldComplete = await showDialog<bool>(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Complete Delivery'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Reward: ${delivery.reward}',
-                  style: const TextStyle(fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 14),
-                const Text('Completing this delivery will:'),
-                const SizedBox(height: 10),
-                const _DialogBullet(text: 'Add earnings to the dashboard'),
-                const _DialogBullet(text: 'Increase completed errands'),
-                const _DialogBullet(text: 'Update performance statistics'),
-                const _DialogBullet(text: 'Deduct one float'),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF102A43),
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Complete'),
-              ),
-            ],
-          ),
-    );
-
-    if (shouldComplete != true) return;
-
-    setState(() {
-      _totalEarnings += delivery.rewardAmount;
-      _completedErrands += 1;
-      _performanceScore = 99;
-      if (_floatBalance > 0) _floatBalance -= 1;
-
-      _completedDeliveries.insert(
-        0,
-        delivery.copyWith(
-          status: DeliveryStatus.completed,
-          completedDate: 'Today',
-        ),
-      );
-      _activeDelivery = null;
-    });
-
-    if (!mounted) return;
-    _showDeliverySnackBar(context, message: 'Delivery completed successfully.');
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+
     return DefaultTabController(
       length: 2,
       child: Scaffold(
@@ -134,7 +26,7 @@ class _MyDeliveriesPageState extends State<MyDeliveriesPage> {
         body: SafeArea(
           child: Column(
             children: [
-              // Navigation tabs for current and completed delivery work.
+              // Delivery state tabs.
               Container(
                 margin: const EdgeInsets.fromLTRB(20, 8, 20, 12),
                 padding: const EdgeInsets.all(4),
@@ -160,21 +52,53 @@ class _MyDeliveriesPageState extends State<MyDeliveriesPage> {
                 ),
               ),
               Expanded(
-                child: TabBarView(
-                  children: [
-                    _ActiveDeliveryTab(
-                      activeDelivery: _activeDelivery,
-                      totalEarnings: _totalEarnings,
-                      completedErrands: _completedErrands,
-                      performanceScore: _performanceScore,
-                      floatBalance: _floatBalance,
-                      onAdvanceStatus: _advanceDeliveryStatus,
-                    ),
-                    _CompletedDeliveriesTab(
-                      completedDeliveries: _completedDeliveries,
-                    ),
-                  ],
-                ),
+                child:
+                    user == null
+                        ? const _SignedOutState()
+                        : StreamBuilder<List<Delivery>>(
+                          stream: FirestoreDeliveriesRepository()
+                              .watchRunnerDeliveries(user.uid),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return const _DeliveriesLoadingState();
+                            }
+
+                            if (snapshot.hasError) {
+                              return const _CenteredState(
+                                icon: Icons.cloud_off_outlined,
+                                title: 'Could not load deliveries',
+                                message:
+                                    'Please check your connection and try again.',
+                              );
+                            }
+
+                            final deliveries =
+                                snapshot.data ?? const <Delivery>[];
+                            final activeDeliveries =
+                                deliveries
+                                    .where((delivery) => !delivery.isCompleted)
+                                    .toList();
+                            final completedDeliveries =
+                                deliveries
+                                    .where((delivery) => delivery.isCompleted)
+                                    .toList();
+
+                            return TabBarView(
+                              children: [
+                                _ActiveDeliveryTab(
+                                  activeDelivery:
+                                      activeDeliveries.isEmpty
+                                          ? null
+                                          : activeDeliveries.first,
+                                ),
+                                _CompletedDeliveriesTab(
+                                  completedDeliveries: completedDeliveries,
+                                ),
+                              ],
+                            );
+                          },
+                        ),
               ),
             ],
           ),
@@ -203,6 +127,16 @@ extension DeliveryStatusDetails on DeliveryStatus {
     };
   }
 
+  String get firestoreValue {
+    return switch (this) {
+      DeliveryStatus.headingToPickup => 'headingToPickup',
+      DeliveryStatus.arrivedAtPickup => 'arrivedAtPickup',
+      DeliveryStatus.itemCollected => 'itemCollected',
+      DeliveryStatus.delivered => 'delivered',
+      DeliveryStatus.completed => 'completed',
+    };
+  }
+
   String? get actionLabel {
     return switch (this) {
       DeliveryStatus.headingToPickup => 'Arrived at Pickup',
@@ -222,6 +156,16 @@ extension DeliveryStatusDetails on DeliveryStatus {
       DeliveryStatus.completed => DeliveryStatus.completed,
     };
   }
+
+  static DeliveryStatus fromFirestore(dynamic value) {
+    return switch (value?.toString()) {
+      'arrivedAtPickup' => DeliveryStatus.arrivedAtPickup,
+      'itemCollected' => DeliveryStatus.itemCollected,
+      'delivered' => DeliveryStatus.delivered,
+      'completed' => DeliveryStatus.completed,
+      _ => DeliveryStatus.headingToPickup,
+    };
+  }
 }
 
 class Delivery {
@@ -233,6 +177,7 @@ class Delivery {
     required this.pickupLocation,
     required this.destination,
     required this.reward,
+    required this.rewardAmount,
     required this.status,
     required this.completedDate,
   });
@@ -244,54 +189,131 @@ class Delivery {
   final String pickupLocation;
   final String destination;
   final String reward;
+  final double rewardAmount;
   final DeliveryStatus status;
   final String? completedDate;
 
-  double get rewardAmount {
-    return double.tryParse(reward.replaceAll('K', '').trim()) ?? 0;
+  bool get isCompleted => status == DeliveryStatus.completed;
+
+  factory Delivery.fromFirestore(String id, Map<String, dynamic> data) {
+    final price = data['price'];
+    final updatedAt = data['updatedAt'];
+    final createdAt = data['createdAt'];
+    final statusText = data['status']?.toString();
+    final deliveryStatus =
+        statusText == 'Completed'
+            ? DeliveryStatus.completed
+            : DeliveryStatusDetails.fromFirestore(data['deliveryStatus']);
+    final rewardAmount = price is num ? price.toDouble() : 0.0;
+
+    return Delivery(
+      id: id,
+      title: data['title']?.toString() ?? 'Untitled Errand',
+      category: data['category']?.toString() ?? 'Other',
+      requesterName: data['senderName']?.toString() ?? 'Requester',
+      pickupLocation: data['pickupLocation']?.toString() ?? '',
+      destination:
+          data['dropoffLocation']?.toString() ??
+          data['deliveryLocation']?.toString() ??
+          '',
+      reward: _formatReward(rewardAmount),
+      rewardAmount: rewardAmount,
+      status: deliveryStatus,
+      completedDate:
+          deliveryStatus == DeliveryStatus.completed
+              ? _formatCompletionDate(updatedAt ?? createdAt)
+              : null,
+    );
   }
 
-  Delivery copyWith({
-    String? id,
-    String? title,
-    String? category,
-    String? requesterName,
-    String? pickupLocation,
-    String? destination,
-    String? reward,
-    DeliveryStatus? status,
-    String? completedDate,
-  }) {
-    return Delivery(
-      id: id ?? this.id,
-      title: title ?? this.title,
-      category: category ?? this.category,
-      requesterName: requesterName ?? this.requesterName,
-      pickupLocation: pickupLocation ?? this.pickupLocation,
-      destination: destination ?? this.destination,
-      reward: reward ?? this.reward,
-      status: status ?? this.status,
-      completedDate: completedDate ?? this.completedDate,
-    );
+  static String _formatReward(double price) {
+    final hasDecimals = price % 1 != 0;
+    return 'K${price.toStringAsFixed(hasDecimals ? 2 : 0)}';
+  }
+
+  static String _formatCompletionDate(dynamic timestamp) {
+    if (timestamp is! Timestamp) return 'Today';
+
+    final completedAt = timestamp.toDate();
+    final now = DateTime.now();
+    final isToday =
+        completedAt.year == now.year &&
+        completedAt.month == now.month &&
+        completedAt.day == now.day;
+
+    if (isToday) return 'Today';
+    return '${completedAt.day}/${completedAt.month}/${completedAt.year}';
+  }
+}
+
+class FirestoreDeliveriesRepository {
+  Stream<List<Delivery>> watchRunnerDeliveries(String runnerId) {
+    return FirebaseFirestore.instance
+        .collection('errands')
+        .where('runnerId', isEqualTo: runnerId)
+        .snapshots()
+        .map((snapshot) {
+          final docs = [...snapshot.docs];
+          docs.sort((a, b) {
+            final aTime = a.data()['updatedAt'] ?? a.data()['acceptedAt'];
+            final bTime = b.data()['updatedAt'] ?? b.data()['acceptedAt'];
+
+            if (aTime is Timestamp && bTime is Timestamp) {
+              return bTime.compareTo(aTime);
+            }
+
+            return 0;
+          });
+
+          return docs
+              .map((doc) => Delivery.fromFirestore(doc.id, doc.data()))
+              .toList();
+        });
+  }
+
+  Future<void> advanceDelivery(Delivery delivery) async {
+    final nextStatus = delivery.status.next;
+    await FirebaseFirestore.instance
+        .collection('errands')
+        .doc(delivery.id)
+        .update({
+          'status': 'In Progress',
+          'deliveryStatus': nextStatus.firestoreValue,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+  }
+
+  Future<void> completeDelivery({
+    required Delivery delivery,
+    required String runnerId,
+  }) async {
+    final firestore = FirebaseFirestore.instance;
+    final errandRef = firestore.collection('errands').doc(delivery.id);
+    final userRef = firestore.collection('users').doc(runnerId);
+
+    await firestore.runTransaction((transaction) async {
+      transaction.update(errandRef, {
+        'status': 'Completed',
+        'deliveryStatus': DeliveryStatus.completed.firestoreValue,
+        'completedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      transaction.set(userRef, {
+        'earnings': FieldValue.increment(delivery.rewardAmount),
+        'completedErrands': FieldValue.increment(1),
+        'performanceScore': 99,
+        'floats': FieldValue.increment(-1),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    });
   }
 }
 
 class _ActiveDeliveryTab extends StatelessWidget {
-  const _ActiveDeliveryTab({
-    required this.activeDelivery,
-    required this.totalEarnings,
-    required this.completedErrands,
-    required this.performanceScore,
-    required this.floatBalance,
-    required this.onAdvanceStatus,
-  });
+  const _ActiveDeliveryTab({required this.activeDelivery});
 
   final Delivery? activeDelivery;
-  final double totalEarnings;
-  final int completedErrands;
-  final double performanceScore;
-  final int floatBalance;
-  final VoidCallback onAdvanceStatus;
 
   @override
   Widget build(BuildContext context) {
@@ -302,107 +324,9 @@ class _ActiveDeliveryTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
       children: [
-        _MockStatsStrip(
-          totalEarnings: totalEarnings,
-          completedErrands: completedErrands,
-          performanceScore: performanceScore,
-          floatBalance: floatBalance,
-        ),
-        const SizedBox(height: 14),
         ActiveDeliveryCard(delivery: activeDelivery!),
         const SizedBox(height: 16),
-        DeliveryStatusButton(
-          status: activeDelivery!.status,
-          onPressed: onAdvanceStatus,
-        ),
-      ],
-    );
-  }
-}
-
-class _MockStatsStrip extends StatelessWidget {
-  const _MockStatsStrip({
-    required this.totalEarnings,
-    required this.completedErrands,
-    required this.performanceScore,
-    required this.floatBalance,
-  });
-
-  final double totalEarnings;
-  final int completedErrands;
-  final double performanceScore;
-  final int floatBalance;
-
-  @override
-  Widget build(BuildContext context) {
-    final hasDecimals = totalEarnings % 1 != 0;
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _MiniMetric(
-              label: 'Earnings',
-              value: 'K${totalEarnings.toStringAsFixed(hasDecimals ? 2 : 0)}',
-            ),
-          ),
-          Expanded(
-            child: _MiniMetric(
-              label: 'Completed',
-              value: completedErrands.toString(),
-            ),
-          ),
-          Expanded(
-            child: _MiniMetric(
-              label: 'Performance',
-              value: '${performanceScore.toStringAsFixed(0)}%',
-            ),
-          ),
-          Expanded(
-            child: _MiniMetric(label: 'Floats', value: floatBalance.toString()),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MiniMetric extends StatelessWidget {
-  const _MiniMetric({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Color(0xFF111827),
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Color(0xFF6B7280),
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
+        DeliveryStatusButton(delivery: activeDelivery!),
       ],
     );
   }
@@ -488,25 +412,103 @@ class ActiveDeliveryCard extends StatelessWidget {
   }
 }
 
-class DeliveryStatusButton extends StatelessWidget {
-  const DeliveryStatusButton({
-    super.key,
-    required this.status,
-    required this.onPressed,
-  });
+class DeliveryStatusButton extends StatefulWidget {
+  const DeliveryStatusButton({super.key, required this.delivery});
 
-  final DeliveryStatus status;
-  final VoidCallback onPressed;
+  final Delivery delivery;
+
+  @override
+  State<DeliveryStatusButton> createState() => _DeliveryStatusButtonState();
+}
+
+class _DeliveryStatusButtonState extends State<DeliveryStatusButton> {
+  bool _isSaving = false;
+
+  Future<void> _handlePressed() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    if (widget.delivery.status == DeliveryStatus.delivered) {
+      await _showCompleteDeliveryDialog(user.uid);
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      await FirestoreDeliveriesRepository().advanceDelivery(widget.delivery);
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  Future<void> _showCompleteDeliveryDialog(String runnerId) async {
+    final delivery = widget.delivery;
+    final shouldComplete = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Complete Delivery'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Reward: ${delivery.reward}',
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 14),
+                const Text('Completing this delivery will:'),
+                const SizedBox(height: 10),
+                const _DialogBullet(text: 'Add earnings to the dashboard'),
+                const _DialogBullet(text: 'Increase completed errands'),
+                const _DialogBullet(text: 'Update performance statistics'),
+                const _DialogBullet(text: 'Deduct one float'),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF102A43),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Complete'),
+              ),
+            ],
+          ),
+    );
+
+    if (shouldComplete != true) return;
+
+    setState(() => _isSaving = true);
+    try {
+      await FirestoreDeliveriesRepository().completeDelivery(
+        delivery: delivery,
+        runnerId: runnerId,
+      );
+      if (!mounted) return;
+      _showDeliverySnackBar(
+        context,
+        message: 'Delivery completed successfully.',
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final label = status.actionLabel;
+    final label = widget.delivery.status.actionLabel;
     if (label == null) return const SizedBox.shrink();
 
     return SizedBox(
       width: double.infinity,
       child: FilledButton(
-        onPressed: onPressed,
+        onPressed: _isSaving ? null : _handlePressed,
         style: FilledButton.styleFrom(
           backgroundColor: const Color(0xFF102A43),
           foregroundColor: Colors.white,
@@ -515,7 +517,7 @@ class DeliveryStatusButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
           ),
         ),
-        child: Text(label),
+        child: Text(_isSaving ? 'Updating...' : label),
       ),
     );
   }
@@ -680,7 +682,7 @@ class _DeliveryInfoRow extends StatelessWidget {
           ),
           Expanded(
             child: Text(
-              value,
+              value.isEmpty ? 'Not set' : value,
               style: const TextStyle(
                 color: Color(0xFF111827),
                 fontWeight: FontWeight.w900,
@@ -754,7 +756,7 @@ class _CompactLocationLine extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: Text(
-            value,
+            value.isEmpty ? 'Not set' : value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -783,6 +785,91 @@ class _DialogBullet extends StatelessWidget {
           const Text('- ', style: TextStyle(fontWeight: FontWeight.w800)),
           Expanded(child: Text(text)),
         ],
+      ),
+    );
+  }
+}
+
+class _SignedOutState extends StatelessWidget {
+  const _SignedOutState();
+
+  @override
+  Widget build(BuildContext context) {
+    return const _CenteredState(
+      icon: Icons.lock_outline,
+      title: 'Sign in required',
+      message: 'Please sign in to view your deliveries.',
+    );
+  }
+}
+
+class _CenteredState extends StatelessWidget {
+  const _CenteredState({
+    required this.icon,
+    required this.title,
+    required this.message,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: const Color(0xFF9CA3AF), size: 58),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF111827),
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Color(0xFF6B7280), height: 1.4),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DeliveriesLoadingState extends StatelessWidget {
+  const _DeliveriesLoadingState();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+      itemCount: 4,
+      separatorBuilder: (_, __) => const SizedBox(height: 14),
+      itemBuilder: (_, __) => const _DeliverySkeletonCard(),
+    );
+  }
+}
+
+class _DeliverySkeletonCard extends StatelessWidget {
+  const _DeliverySkeletonCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 216,
+      decoration: BoxDecoration(
+        color: const Color(0xFFE5E7EB),
+        borderRadius: BorderRadius.circular(20),
       ),
     );
   }

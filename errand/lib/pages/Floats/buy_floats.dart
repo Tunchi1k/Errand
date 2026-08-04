@@ -161,9 +161,15 @@ class BuyFloatsPage extends StatelessWidget {
   ) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please sign in to buy floats.')),
-      );
+      _showFloatsSnackBar(context, message: 'Please sign in to buy floats.', isError: true);
+      return;
+    }
+
+    // Verify user role is Runner
+    final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+    final role = userDoc.data()?['role']?.toString();
+    if (role != 'Runner') {
+      _showFloatsSnackBar(context, message: 'You are not a runner.', isError: true);
       return;
     }
 
@@ -190,18 +196,47 @@ class BuyFloatsPage extends StatelessWidget {
       await batch.commit();
       if (!context.mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Purchase request submitted successfully.'),
-        ),
-      );
+      _showFloatsSnackBar(context, message: 'Purchase request submitted successfully.');
     } catch (e) {
       if (!context.mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not submit purchase request: $e')),
-      );
+      _showFloatsSnackBar(context, message: 'Could not submit purchase request: $e', isError: true);
     }
+  }
+
+  void _showFloatsSnackBar(BuildContext context, {required String message, bool isError = false}) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(
+                isError ? Icons.error_outline : Icons.check_circle_outline,
+                color: Colors.white,
+                size: 20,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  message,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: isError ? const Color(0xFF991B1B) : const Color(0xFF102A43),
+          elevation: 0,
+          margin: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          duration: const Duration(seconds: 3),
+        ),
+      );
   }
 }
 

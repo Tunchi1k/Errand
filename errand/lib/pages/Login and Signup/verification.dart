@@ -2,6 +2,7 @@ import 'package:errand/pages/Homepage/home.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:errand/pages/Login%20and%20Signup/role.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
@@ -67,6 +68,23 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
       return 'Network error. Check your internet connection and try again.';
     }
 
+    if (error is http.ClientException) {
+      return 'Could not connect to the upload server. Check your internet connection and try again.';
+    }
+
+    if (error is FirebaseException) {
+      switch (error.code) {
+        case 'permission-denied':
+          return 'You do not have permission to submit verification.';
+        case 'unauthenticated':
+          return 'Your login session has expired. Please sign in again.';
+        case 'unavailable':
+          return 'Firebase is temporarily unavailable. Please try again.';
+        default:
+          return 'Firebase error (${error.code}). Please try again.';
+      }
+    }
+
     return 'Error: $error';
   }
 
@@ -85,10 +103,9 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
 
   Future<String> uploadFileToSupabase(File file, String path) async {
     const bucket = 'verifications';
-    const supabaseUrl = 'https://ubnxtmypavqfixfuyakz.supabase.co';
-    const supabaseKey =
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVibnh0bXlwYXZxZml4ZnV5YWt6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxNDIwOTAsImV4cCI6MjA5NTcxODA5MH0.EFGpwulSPqibSpDylclzQkZx8Yaf4ar85B51knqZUEg'; // Replace with your anon/public key
-
+    const supabaseUrl = 'https://rfqnervrhxzackrmuoec.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmcW5lcnZyaHh6YWNrcm11b2VjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxODUyMzAsImV4cCI6MjA2NTc2MTIzMH0.NywMytTREcK2onPcAY53tUDS0tvulCK0eeuRKXMXbNg';
+        
     final uploadUrl = '$supabaseUrl/storage/v1/object/$bucket/$path';
     final bytes = await file.readAsBytes();
 
@@ -99,6 +116,7 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
             'Authorization': 'Bearer $supabaseKey',
             'apikey': supabaseKey,
             'Content-Type': 'application/octet-stream',
+            'x-upsert': 'true',
           },
           body: bytes,
         )
@@ -106,14 +124,12 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       return '$supabaseUrl/storage/v1/object/public/$bucket/$path';
-    } else {
-      throw Exception(
-        'Upload failed (${response.statusCode}): ${response.body}',
-      );
     }
+
+    throw Exception('Upload failed (${response.statusCode}): ${response.body}');
   }
 
-  void submitVerification() async {
+  Future<void> submitVerification() async {
     if (!_formKey.currentState!.validate()) return;
 
     final user = FirebaseAuth.instance.currentUser;
@@ -150,11 +166,17 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
             'computer_number': _computerNumberController.text.trim(),
             'nrc': _nrcController.text.trim(),
             'room': _roomController.text.trim(),
-            'status': 'pending',
+            // mark approved since users are auto-verified for now
+            'status': 'approved',
             'timestamp': FieldValue.serverTimestamp(),
             'nrc_photo_url': nrcUrl,
             'profile_photo_url': profileUrl,
           });
+
+      // Auto-verify the user immediately in their user document
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'verified': true,
+      }, SetOptions(merge: true));
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -169,6 +191,7 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
       );
     } catch (e) {
       if (!mounted) return;
+      debugPrint('submitVerification error: $e'); 
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(_networkErrorMessage(e))));
@@ -250,6 +273,62 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
+          onPressed: () async {
+            final routeName = ModalRoute.of(context)?.settings.name;
+
+            // If opened via named route (from the drawer), just pop back.
+            if (routeName == '/verification' && Navigator.canPop(context)) {
+              Navigator.pop(context);
+              return;
+            }
+
+            // Otherwise, assume user came from role selection during signup.
+            try {
+              final user = FirebaseAuth.instance.currentUser;
+              if (user == null) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const HomePage()),
+                );
+                return;
+              }
+
+              final doc =
+                  await FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(user.uid)
+                      .get();
+              final data = doc.data() ?? {};
+              final name = data['name']?.toString() ?? '';
+              final email = data['email']?.toString() ?? user.email ?? '';
+
+              if (!mounted) return;
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder:
+                      (_) => RoleSelectionPage(
+                        uid: user.uid,
+                        name: name,
+                        email: email,
+                      ),
+                ),
+              );
+            } catch (_) {
+              if (!mounted) return;
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const HomePage()),
+              );
+            }
+          },
+        ),
+      ),
       backgroundColor: Colors.white,
       body: SingleChildScrollView(
         child: Padding(

@@ -83,7 +83,9 @@ class HomepageDrawer extends StatelessWidget {
               _DrawerItem(
                 icon: Icons.verified_outlined,
                 label: 'Apply For Verification',
-                onTap: () {},
+                onTap: () => {
+                  Navigator.pushNamed(context, '/verification'),
+                },
               ),
           ],
         ),
