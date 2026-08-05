@@ -143,7 +143,6 @@ class _FindErrandsPageState extends State<FindErrandsPage> {
                       delegate: SliverChildListDelegate([
                         if (!_hasActiveFloats) ...[
                           _FloatEligibilityBanner(
-                            onBuyFloats: _showFloatPurchasePlaceholder,
                           ),
                           const SizedBox(height: 18),
                         ],
@@ -215,12 +214,6 @@ class _FindErrandsPageState extends State<FindErrandsPage> {
           },
         ),
       ),
-    );
-  }
-
-  void _showFloatPurchasePlaceholder() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Float purchase will be available soon.')),
     );
   }
 
@@ -432,17 +425,15 @@ class _CategoryFilterBar extends StatelessWidget {
 }
 
 class _FloatEligibilityBanner extends StatelessWidget {
-  const _FloatEligibilityBanner({required this.onBuyFloats});
-
-  final VoidCallback onBuyFloats;
+  const _FloatEligibilityBanner();
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF7ED),
-        border: Border.all(color: const Color(0xFFFED7AA)),
+        color: const Color.fromARGB(57, 255, 0, 0),
+        border: Border.all(color: const Color.fromARGB(255, 255, 0, 0)),
         borderRadius: BorderRadius.circular(18),
       ),
       child: Row(
@@ -451,12 +442,12 @@ class _FloatEligibilityBanner extends StatelessWidget {
             width: 42,
             height: 42,
             decoration: const BoxDecoration(
-              color: Color(0xFFFFEDD5),
+              color: Color.fromARGB(70, 255, 255, 255),
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.warning_amber_rounded,
-              color: Color(0xFFC2410C),
+              color: Color.fromARGB(255, 255, 0, 0),
             ),
           ),
           const SizedBox(width: 12),
@@ -468,17 +459,6 @@ class _FloatEligibilityBanner extends StatelessWidget {
                 fontWeight: FontWeight.w800,
               ),
             ),
-          ),
-          FilledButton(
-            onPressed: onBuyFloats,
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFC2410C),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-            ),
-            child: const Text('Buy Floats'),
           ),
         ],
       ),

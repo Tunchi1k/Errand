@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:errand/services/notification_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -291,7 +292,13 @@ class FirestoreDeliveriesRepository {
     final errandRef = firestore.collection('errands').doc(delivery.id);
     final userRef = firestore.collection('users').doc(runnerId);
 
-    await firestore.runTransaction((transaction) async {
+    final remainingFloats = await firestore.runTransaction<int>((
+      transaction,
+    ) async {
+      final userSnapshot = await transaction.get(userRef);
+      final currentFloats = userSnapshot.data()?['floats'];
+      final newFloats = (currentFloats is num ? currentFloats.toInt() : 0) - 1;
+
       transaction.update(errandRef, {
         'status': 'Completed',
         'deliveryStatus': DeliveryStatus.completed.firestoreValue,
@@ -303,10 +310,31 @@ class FirestoreDeliveriesRepository {
         'earnings': FieldValue.increment(delivery.rewardAmount),
         'completedErrands': FieldValue.increment(1),
         'performanceScore': 99,
-        'floats': FieldValue.increment(-1),
+        'floats': newFloats,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
+
+      return newFloats;
     });
+
+    await NotificationService.sendNotification(
+      userId: runnerId,
+      title: 'Delivery Completed',
+      message: 'You earned ${delivery.reward} from completing your delivery.',
+      actionLabel: 'View Earnings',
+      destinationPage: 'earnings',
+      notificationType: 'delivery_completed',
+    );
+
+    await NotificationService.sendNotification(
+      userId: runnerId,
+      title: 'Float Balance Updated',
+      message:
+          'Your delivery has been completed successfully.\n\n1 float has been deducted from your account.\n\nRemaining Balance: $remainingFloats Floats.',
+      actionLabel: 'View Float Balance',
+      destinationPage: 'buy_floats',
+      notificationType: 'float_updated',
+    );
   }
 }
 

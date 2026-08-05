@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:errand/pages/Login%20and%20Signup/role.dart';
+import 'package:errand/services/notification_service.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
@@ -175,6 +176,16 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
         'verified': true,
       }, SetOptions(merge: true));
+
+      await NotificationService.sendNotification(
+        userId: user.uid,
+        title: 'Account Verified',
+        message:
+            'Congratulations! Your runner account has been successfully verified.\n\nYou can now purchase floats and start accepting errands.',
+        actionLabel: 'Find Errands',
+        destinationPage: 'find_errands',
+        notificationType: 'account_verified',
+      );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

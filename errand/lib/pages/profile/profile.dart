@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:errand/config/supabase_config.dart';
+import 'package:errand/pages/profile/role_switch.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -57,13 +58,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Color _profileAvatarColor() {
     const colors = [
-      Color(0xFF2563EB),
-      Color(0xFF7C3AED),
-      Color(0xFFDB2777),
-      Color(0xFFDC2626),
-      Color(0xFFEA580C),
-      Color(0xFF059669),
-      Color(0xFF0891B2),
+      Color(0xFF111827)
     ];
     final name = userData?['name']?.toString().trim() ?? '';
     final seed = name.isEmpty ? (user?.uid ?? '?') : name;
@@ -237,13 +232,156 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _deleteAccount() async {
-    if (user != null) {
-      await _firestore.collection('users').doc(user!.uid).delete();
-      await user!.delete();
-      _auth.signOut();
+    final account = user ?? _auth.currentUser;
+    if (account == null) return;
+
+    try {
+      await account.delete();
+      await _firestore.collection('users').doc(account.uid).delete();
+      await _auth.signOut();
       if (!mounted) return;
-      Navigator.pop(context);
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      final message =
+          e.code == 'requires-recent-login'
+              ? 'For your security, please sign in again before deleting your account.'
+              : 'Could not delete your account. Please try again.';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not delete your account. Please try again.')),
+      );
     }
+  }
+
+  Widget _profileInfoCard() => _infoCard(
+    title: 'Profile Information',
+    children: [
+      buildInfoTile(Iconsax.user, 'Name', userData!['name'] ?? 'N/A', 'name'),
+      buildInfoTile(Iconsax.profile_circle, 'Username', userData!['username'] ?? 'N/A', 'username'),
+    ],
+  );
+
+  Widget _personalInfoCard() => _infoCard(
+    title: 'Personal Information',
+    children: [
+      buildInfoTile(Iconsax.card, 'Student ID', userData!['studentId'] ?? 'N/A', 'studentId'),
+      buildInfoTile(Iconsax.sms, 'Email', userData!['email'] ?? 'N/A', 'email'),
+      buildInfoTile(Iconsax.call, 'Phone Number', userData!['phone'] ?? 'N/A', 'phone'),
+      buildInfoTile(Iconsax.user_octagon, 'Gender', userData!['gender'] ?? 'N/A', 'gender'),
+      buildInfoTile(Iconsax.home, 'Room Number', userData!['roomNumber'] ?? 'N/A', 'roomNumber'),
+    ],
+  );
+
+  Widget _accountDetailsCard() => _infoCard(
+    title: 'Account Details',
+    children: [
+      ListTile(
+        leading: const Icon(Icons.badge_outlined),
+        title: const Text('Role'),
+        subtitle: Text(userData!['role']?.toString() ?? 'Not set'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () async {
+          final currentRole = userData!['role']?.toString() ?? 'Sender';
+          final switched = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => RoleSwitchPage(currentRole: currentRole),
+            ),
+          );
+          if (switched == true && mounted) {
+            final account = _auth.currentUser;
+            if (account != null) {
+              final snapshot = await _firestore.collection('users').doc(account.uid).get();
+              if (mounted) setState(() => userData = snapshot.data());
+            }
+          }
+        },
+      ),
+      ListTile(
+        leading: const Icon(Icons.lock_outline),
+        title: const Text('Change Password'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: _changePassword,
+      ),
+      ListTile(
+        leading: const Icon(Icons.delete_outline, color: Colors.red),
+        title: const Text('Delete Account', style: TextStyle(color: Colors.red)),
+        onTap: _confirmDeleteAccount,
+      ),
+    ],
+  );
+
+  Future<void> _switchToRunner() async {
+    final account = _auth.currentUser;
+    if (account == null) return;
+    await _firestore.collection('users').doc(account.uid).update({
+      'role': 'Runner',
+      'isVerified': false,
+    });
+    if (!mounted) return;
+    setState(() => userData = {...?userData, 'role': 'Runner', 'isVerified': false});
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You are now a runner. Complete verification to accept errands.')));
+  }
+
+  Future<void> _changePassword() async {
+    final controller = TextEditingController();
+    final password = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Change Password'),
+        content: TextField(controller: controller, obscureText: true, decoration: const InputDecoration(labelText: 'New password')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, controller.text), child: const Text('Update')),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (password == null || password.length < 6) return;
+    try {
+      await _auth.currentUser?.updatePassword(password);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password updated successfully.')));
+    } on FirebaseAuthException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.code == 'requires-recent-login' ? 'Please sign in again before changing your password.' : 'Could not update password.')));
+    }
+  }
+
+  Future<void> _confirmDeleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete Account'),
+        content: const Text('Are you sure you want to delete your account? This action cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+    if (confirmed == true) _deleteAccount();
+  }
+
+  Widget _infoCard({required String title, required List<Widget> children}) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [BoxShadow(color: Color(0x0D111827), blurRadius: 10, offset: Offset(0, 3))],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [buildSectionTitle(title), ...children],
+        ),
+      ),
+    );
   }
 
   @override
@@ -252,7 +390,11 @@ class _ProfilePageState extends State<ProfilePage> {
       appBar: AppBar(
         title: Text('Profile', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
+        backgroundColor: const Color(0xFFF3F4F6),
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
       ),
+      backgroundColor: const Color(0xFFF3F4F6),
       body:
           userData == null
               ? Center(child: CircularProgressIndicator())
@@ -271,87 +413,11 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                     SizedBox(height: 20),
-                    buildSectionTitle('Profile Information'),
-                    buildInfoTile(
-                      Iconsax.user,
-                      'Name',
-                      userData!['name'] ?? 'N/A',
-                      'name',
-                    ),
-                    buildInfoTile(
-                      Iconsax.profile_circle,
-                      'Username',
-                      userData!['username'] ?? 'N/A',
-                      'username',
-                    ),
-                    SizedBox(height: 10),
-                    buildSectionTitle('Personal Information'),
-                    buildInfoTile(
-                      Iconsax.card,
-                      'Student ID',
-                      userData!['studentId'] ?? 'N/A',
-                      'studentId',
-                    ),
-                    buildInfoTile(
-                      Iconsax.sms,
-                      'Email',
-                      userData!['email'] ?? 'N/A',
-                      'email',
-                    ),
-                    buildInfoTile(
-                      Iconsax.call,
-                      'Phone Number',
-                      userData!['phone'] ?? 'N/A',
-                      'phone',
-                    ),
-                    buildInfoTile(
-                      Iconsax.user_octagon,
-                      'Gender',
-                      userData!['gender'] ?? 'N/A',
-                      'gender',
-                    ),
-                    buildInfoTile(
-                      Iconsax.home,
-                      'Room Number',
-                      userData!['roomNumber'] ?? 'N/A',
-                      'roomNumber',
-                    ),
-                    SizedBox(height: 20),
-                    TextButton(
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder:
-                              (context) => AlertDialog(
-                                title: Text("Delete Account"),
-                                content: Text(
-                                  "Are you sure you want to delete your account? This action cannot be undone.",
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    child: Text("Cancel"),
-                                  ),
-                                  TextButton(
-                                    onPressed: _deleteAccount,
-                                    child: Text(
-                                      "Delete",
-                                      style: TextStyle(color: Colors.red),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                        );
-                      },
-                      child: Text(
-                        'Delete Account',
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
+                    _profileInfoCard(),
+                    const SizedBox(height: 16),
+                    _personalInfoCard(),
+                    const SizedBox(height: 16),
+                    _accountDetailsCard(),
                   ],
                 ),
               ),

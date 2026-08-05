@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:errand/services/custom_toast.dart';
 
 class PostTaskPage extends StatefulWidget {
   const PostTaskPage({super.key});
@@ -49,6 +50,30 @@ class _PostTaskPageState extends State<PostTaskPage> {
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please log in before posting.')),
+      );
+      return;
+    }
+
+    final profileSnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
+    final profile = profileSnapshot.data() ?? {};
+    final isSender = profile['role']?.toString() == 'Sender';
+    final requiredProfileFields = [
+      profile['name'],
+      profile['phone'],
+      profile['studentId'],
+      profile['gender'],
+      profile['roomNumber'],
+    ];
+    final profileIsComplete = requiredProfileFields.every(
+      (value) => value != null && value.toString().trim().isNotEmpty,
+    );
+    if (isSender && !profileIsComplete) {
+      CustomToast.show(
+        context,
+        'Profile Incomplete\n\nPlease complete your phone number and personal details before posting an errand.',
       );
       return;
     }

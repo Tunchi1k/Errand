@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:errand/services/notification_service.dart';
 
 class Errand {
   const Errand({
@@ -143,6 +144,10 @@ class FirestoreErrandRepository implements ErrandRepository {
       return AcceptErrandResult.activeErrandExists;
     }
 
+    var errandTitle = 'this errand';
+    String? senderId;
+    Map<String, dynamic>? runnerData;
+
     return firestore.runTransaction((transaction) async {
       final userSnapshot = await transaction.get(userRef);
       final errandSnapshot = await transaction.get(errandRef);
@@ -161,12 +166,16 @@ class FirestoreErrandRepository implements ErrandRepository {
       }
 
       final errandData = errandSnapshot.data() ?? {};
+      runnerData = userSnapshot.data();
       final status = errandData['status']?.toString();
       final assignedRunner = errandData['runnerId'];
 
       if (status != 'Active' || assignedRunner != null) {
         return AcceptErrandResult.errandUnavailable;
       }
+
+      errandTitle = errandData['title']?.toString() ?? errandTitle;
+      senderId = errandData['senderId']?.toString() ?? errandData['userId']?.toString();
 
       transaction.update(errandRef, {
         'runnerId': runnerId,
@@ -177,6 +186,48 @@ class FirestoreErrandRepository implements ErrandRepository {
       });
 
       return AcceptErrandResult.accepted;
+    }).then((result) async {
+      if (result == AcceptErrandResult.accepted) {
+        await NotificationService.sendNotification(
+          userId: runnerId,
+          title: 'Delivery Assigned',
+          message: 'You have successfully accepted "$errandTitle."',
+          actionLabel: 'View Delivery',
+          destinationPage: 'delivery',
+          notificationType: 'delivery_assigned',
+        );
+
+        if (senderId != null && senderId!.isNotEmpty) {
+          final runner = runnerData ?? {};
+          final details = <String>[];
+          final runnerName = runner['name']?.toString() ?? runner['displayName']?.toString();
+          final phone = runner['phone']?.toString() ?? runner['phoneNumber']?.toString();
+          final gender = runner['gender']?.toString();
+          final rating = runner['rating'] ?? runner['runnerRating'];
+          final profile = runner['profileInformation']?.toString() ?? runner['bio']?.toString();
+          if (runnerName != null && runnerName.isNotEmpty) details.add('Runner:\n$runnerName');
+          if (phone != null && phone.isNotEmpty) details.add('Phone:\n$phone');
+          if (gender != null && gender.isNotEmpty) details.add('Gender:\n$gender');
+          if (rating != null) details.add('Rating:\n$rating');
+          if (profile != null && profile.isNotEmpty) details.add('Profile:\n$profile');
+
+          final message = [
+            'A runner has accepted your errand.',
+            if (details.isNotEmpty) ...['', details.join('\n\n')],
+            '',
+            'You can now view the runner details and continue with your delivery.',
+          ].join('\n');
+          await NotificationService.sendNotification(
+            userId: senderId!,
+            title: 'Runner Assigned',
+            message: message,
+            actionLabel: 'View Runner',
+            destinationPage: 'delivery',
+            notificationType: 'runner_assigned',
+          );
+        }
+      }
+      return result;
     });
   }
 }

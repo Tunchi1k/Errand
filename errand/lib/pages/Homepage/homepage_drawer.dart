@@ -142,6 +142,7 @@ class _DrawerHeader extends StatelessWidget {
         username?.trim().isNotEmpty == true ? username! : 'User';
     final initial = displayName.characters.first.toUpperCase();
     final showVerification = role == 'Runner';
+    final showSenderTag = role == 'Sender';
 
     return Container(
       height: 178,
@@ -178,7 +179,7 @@ class _DrawerHeader extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.archivoBlack(color: Colors.white, fontSize: 20),
           ),
-          if (showVerification) ...[
+          if (showVerification || showSenderTag) ...[
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -190,17 +191,20 @@ class _DrawerHeader extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    isVerified ? Icons.verified_rounded : Icons.info_outline,
-                    color:
-                        isVerified
-                            ? const Color(0xFF86EFAC)
-                            : const Color(0xFFFCA5A5),
-                    size: 16,
-                  ),
-                  const SizedBox(width: 7),
+                  if (!showSenderTag)
+                    Icon(
+                      isVerified ? Icons.verified_rounded : Icons.info_outline,
+                      color:
+                          isVerified
+                              ? const Color(0xFF86EFAC)
+                              : const Color(0xFFFCA5A5),
+                      size: 16,
+                    ),
+                  if (!showSenderTag) const SizedBox(width: 7),
                   Text(
-                    isVerified ? 'Verified' : 'Not Verified',
+                    showSenderTag
+                        ? 'Sender'
+                        : (isVerified ? 'Verified' : 'Not Verified'),
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 12,

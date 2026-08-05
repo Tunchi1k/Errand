@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:errand/services/notification_service.dart';
+import 'package:errand/services/custom_toast.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -48,13 +50,20 @@ class _HomePageeState extends State<HomePage> {
       final hasReceivedWelcome = userDoc.data()?['hasReceivedWelcome'] ?? false;
 
       if (!hasReceivedWelcome) {
-        await FirebaseFirestore.instance.collection('notifications').add({
-          'userId': user.uid,
-          'title': 'Welcome to Errand!',
-          'message': 'We’re excited to have you on board 🎉',
-          'timestamp': Timestamp.fromDate(DateTime.now()),
-          'isRead': false,
-        });
+        await NotificationService.sendNotification(
+          userId: user.uid,
+          title: 'Welcome to Errand!',
+          message: 'Hey there! Welcome to Errand!\n\n'
+              'You’re officially part of a community where students help each other get things done faster, easier, and smarter.\n\n'
+              'Before you jump in, let’s get your profile looking great.\n\n'
+              'Add your:\n- Profile photo\n- Phone number\n- Personal details\n\n'
+              'A complete profile helps other students know who they’re working with and makes it easier to build trust.\n\n'
+              'Once you’re ready, you can start posting errands, accepting deliveries, earning rewards, and being part of the Errand community.\n\n'
+              'Let’s set up your profile and get you started!',
+          actionLabel: 'Complete Profile',
+          destinationPage: 'profile',
+          notificationType: 'welcome',
+        );
 
         await userDocRef.update({'hasReceivedWelcome': true});
       }
@@ -119,6 +128,18 @@ class _HomePageeState extends State<HomePage> {
     }
   }
 
+  Future<void> _openBuyFloats() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+    if (!mounted) return;
+    if (userDoc.data()?['role']?.toString() != 'Runner') {
+      CustomToast.show(context, 'Runner Access Required\n\nFloats are only available for runner accounts. Switch to a runner account to purchase floats and start accepting errands.');
+      return;
+    }
+    Navigator.pushNamed(context, '/buyFloats');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -173,7 +194,7 @@ class _HomePageeState extends State<HomePage> {
                         _buildImageQuickAction(
                           'images/buy.png',
                           "",
-                          () => Navigator.pushNamed(context, '/buyFloats'),
+                          _openBuyFloats,
                         ),
                       ],
                     ),
