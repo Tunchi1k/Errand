@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:errand/config/supabase_config.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -17,9 +18,6 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  static const String _supabaseUrl = 'https://ubnxtmypavqfixfuyakz.supabase.co';
-  static const String _supabaseKey =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVibnh0bXlwYXZxZml4ZnV5YWt6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxNDIwOTAsImV4cCI6MjA5NTcxODA5MH0.EFGpwulSPqibSpDylclzQkZx8Yaf4ar85B51knqZUEg';
   User? user;
   Map<String, dynamic>? userData;
   File? _image;
@@ -43,13 +41,57 @@ class _ProfilePageState extends State<ProfilePage> {
     return '$photoUrl${separator}v=$versionValue';
   }
 
-  ImageProvider<Object> _profileImageProvider() {
+  ImageProvider<Object>? _profileImageProvider() {
     if (_image != null) return FileImage(_image!);
 
     final photoUrl = _profilePhotoUrl();
     if (photoUrl.isNotEmpty) return NetworkImage(photoUrl);
 
-    return const AssetImage('images/user.jpg');
+    return null;
+  }
+
+  String _profileInitial() {
+    final name = userData?['name']?.toString().trim() ?? '';
+    return name.isEmpty ? '?' : name.substring(0, 1).toUpperCase();
+  }
+
+  Color _profileAvatarColor() {
+    const colors = [
+      Color(0xFF2563EB),
+      Color(0xFF7C3AED),
+      Color(0xFFDB2777),
+      Color(0xFFDC2626),
+      Color(0xFFEA580C),
+      Color(0xFF059669),
+      Color(0xFF0891B2),
+    ];
+    final name = userData?['name']?.toString().trim() ?? '';
+    final seed = name.isEmpty ? (user?.uid ?? '?') : name;
+    var hash = 0;
+    for (final codeUnit in seed.codeUnits) {
+      hash = (hash * 31 + codeUnit) & 0x7fffffff;
+    }
+    return colors[hash % colors.length];
+  }
+
+  Widget _profileAvatar() {
+    final imageProvider = _profileImageProvider();
+    return CircleAvatar(
+      radius: 50,
+      backgroundColor: _profileAvatarColor(),
+      backgroundImage: imageProvider,
+      child:
+          imageProvider == null
+              ? Text(
+                _profileInitial(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 36,
+                  fontWeight: FontWeight.bold,
+                ),
+              )
+              : null,
+    );
   }
 
   String _networkErrorMessage(Object error) {
@@ -147,16 +189,15 @@ class _ProfilePageState extends State<ProfilePage> {
         final userId = user!.uid;
         final updatedAt = DateTime.now().millisecondsSinceEpoch;
         final fileName = "$userId-$updatedAt.jpg";
-        final bucket = 'userprofile';
-
         final bytes = await imageFile.readAsBytes();
+        debugPrint('KEY LENGTH: ${supabaseKey.length}');
 
         final response = await http
             .post(
-              Uri.parse('$_supabaseUrl/storage/v1/object/$bucket/$fileName'),
+              Uri.parse('$supabaseUrl/storage/v1/object/$supabaseUserProfileBucket/$fileName'),
               headers: {
-                'Authorization': 'Bearer $_supabaseKey',
-                'apikey': _supabaseKey,
+                'Authorization': 'Bearer $supabaseKey',
+                'apikey': supabaseKey,
                 'Content-Type': 'application/octet-stream',
                 'x-upsert': 'true',
               },
@@ -166,7 +207,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
         if (response.statusCode == 200 || response.statusCode == 201) {
           final publicUrl =
-              '$_supabaseUrl/storage/v1/object/public/$bucket/$fileName';
+              '$supabaseUrl/storage/v1/object/public/$supabaseUserProfileBucket/$fileName';
 
           await _firestore.collection('users').doc(userId).update({
             'profilePhoto': publicUrl,
@@ -220,10 +261,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    CircleAvatar(
-                      radius: 50,
-                      backgroundImage: _profileImageProvider(),
-                    ),
+                    _profileAvatar(),
                     SizedBox(height: 10),
                     TextButton(
                       onPressed: _pickImage,

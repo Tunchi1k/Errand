@@ -7,6 +7,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:errand/config/supabase_config.dart';
 
 class RunnerVerificationPage extends StatefulWidget {
   const RunnerVerificationPage({super.key});
@@ -102,11 +103,8 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
   }
 
   Future<String> uploadFileToSupabase(File file, String path) async {
-    const bucket = 'verifications';
-    const supabaseUrl = 'https://rfqnervrhxzackrmuoec.supabase.co';
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmcW5lcnZyaHh6YWNrcm11b2VjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxODUyMzAsImV4cCI6MjA2NTc2MTIzMH0.NywMytTREcK2onPcAY53tUDS0tvulCK0eeuRKXMXbNg';
-        
-    final uploadUrl = '$supabaseUrl/storage/v1/object/$bucket/$path';
+    final uploadUrl =
+        '$supabaseUrl/storage/v1/object/$supabaseVerificationsBucket/$path';
     final bytes = await file.readAsBytes();
 
     final response = await http
@@ -123,7 +121,7 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
         .timeout(const Duration(seconds: 30));
 
     if (response.statusCode == 200 || response.statusCode == 201) {
-      return '$supabaseUrl/storage/v1/object/public/$bucket/$path';
+      return '$supabaseUrl/storage/v1/object/public/$supabaseVerificationsBucket/$path';
     }
 
     throw Exception('Upload failed (${response.statusCode}): ${response.body}');
