@@ -5,6 +5,7 @@ import 'package:iconsax/iconsax.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:errand/config/supabase_config.dart';
 import 'package:errand/pages/profile/role_switch.dart';
@@ -281,9 +282,7 @@ class _ProfilePageState extends State<ProfilePage> {
     title: 'Account Details',
     children: [
       ListTile(
-        leading: const Icon(Icons.badge_outlined),
-        title: const Text('Role'),
-        subtitle: Text(userData!['role']?.toString() ?? 'Not set'),
+        title: const Text('Role', style: TextStyle(fontWeight: FontWeight.w500)),
         trailing: const Icon(Icons.chevron_right),
         onTap: () async {
           final currentRole = userData!['role']?.toString() ?? 'Sender';
@@ -303,14 +302,18 @@ class _ProfilePageState extends State<ProfilePage> {
         },
       ),
       ListTile(
-        leading: const Icon(Icons.lock_outline),
-        title: const Text('Change Password'),
+        title: const Text(
+          'Change Password',
+          style: TextStyle(fontWeight: FontWeight.w500),
+        ),
         trailing: const Icon(Icons.chevron_right),
         onTap: _changePassword,
       ),
       ListTile(
-        leading: const Icon(Icons.delete_outline, color: Colors.red),
-        title: const Text('Delete Account', style: TextStyle(color: Colors.red)),
+        title: const Text(
+          'Delete Account',
+          style: TextStyle(color: Colors.red, fontWeight: FontWeight.w500),
+        ),
         onTap: _confirmDeleteAccount,
       ),
     ],
@@ -388,7 +391,10 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Profile', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(
+          'Profile',
+          style: GoogleFonts.archivoBlack(fontSize: 30),
+        ),
         centerTitle: true,
         backgroundColor: const Color(0xFFF3F4F6),
         surfaceTintColor: Colors.transparent,

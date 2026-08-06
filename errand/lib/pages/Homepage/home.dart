@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:errand/pages/FindErrands/errand_repository.dart';
 import 'package:errand/pages/Homepage/homepage_drawer.dart';
@@ -23,18 +24,29 @@ class _HomePageeState extends State<HomePage> {
   int activeCount = 0;
   double earnings = 0;
   int floatsCount = 0;
+  int activeRequestsCount = 0;
+  int completedDeliveriesCount = 0;
+  double totalSpent = 0;
   String? username;
   String? role;
   bool isVerified = false;
   Stream<List<Errand>>? _activeErrandsStream;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+  _userStatsSubscription;
 
   @override
   void initState() {
     super.initState();
     _activeErrandsStream = _errandRepository.watchAvailableErrands();
     fetchUsername();
-    fetchStats();
+    _listenToStats();
     sendWelcomeNotificationIfNeeded();
+  }
+
+  @override
+  void dispose() {
+    _userStatsSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> sendWelcomeNotificationIfNeeded() async {
@@ -98,34 +110,35 @@ class _HomePageeState extends State<HomePage> {
     }
   }
 
-  Future<void> fetchStats() async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      int floats = 0;
-      Map<String, dynamic> stats = {};
-      if (user != null) {
-        final userDoc =
-            await FirebaseFirestore.instance
-                .collection('users')
-                .doc(user.uid)
-                .get();
-        floats = userDoc.data()?['floats'] ?? 0;
-        stats = userDoc.data() ?? {};
-      }
+  void _listenToStats() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
 
-      final completed = stats['completed'] ?? 0;
-      final active = stats['active'] ?? 0;
-      final totalEarnings = (stats['totalEarnings'] ?? 0).toDouble();
-
-      setState(() {
-        completedCount = completed;
-        activeCount = active;
-        earnings = totalEarnings;
-        floatsCount = floats;
-      });
-    } catch (e) {
-      debugPrint('Error fetching stats: $e');
-    }
+    _userStatsSubscription = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .snapshots()
+        .listen(
+          (userDoc) {
+            final stats = userDoc.data() ?? {};
+            if (!mounted) return;
+            setState(() {
+              completedCount = stats['completed'] ?? 0;
+              activeCount = stats['active'] ?? 0;
+              earnings = (stats['totalEarnings'] ?? 0).toDouble();
+              floatsCount = stats['floats'] ?? 0;
+              // TODO: activeRequests/completedDeliveries/totalSpent aren't
+              // written anywhere yet (e.g. on errand post/complete) — wire
+              // those up on the sender side, this just reads what's there.
+              activeRequestsCount = stats['activeRequests'] ?? 0;
+              completedDeliveriesCount = stats['completedDeliveries'] ?? 0;
+              totalSpent = (stats['totalSpent'] ?? 0).toDouble();
+            });
+          },
+          onError: (e) {
+            debugPrint('Error listening to stats: $e');
+          },
+        );
   }
 
   Future<void> _openBuyFloats() async {
@@ -140,6 +153,148 @@ class _HomePageeState extends State<HomePage> {
     Navigator.pushNamed(context, '/buyFloats');
   }
 
+  List<Widget> _quickActionTiles(BuildContext context) {
+    final isRunner = role == 'Runner';
+
+    if (isRunner) {
+      return [
+        _buildImageQuickAction(
+          'images/finderrand.png',
+          "",
+          () => Navigator.pushNamed(context, '/findErrands'),
+        ),
+        // TODO: no dedicated photo asset for My Deliveries yet — icon tile
+        // until one is designed, to match the other Quick Action tiles.
+        _buildIconQuickAction(
+          Icons.local_shipping_outlined,
+          'My Deliveries',
+          () => Navigator.pushNamed(context, '/myDeliveries'),
+        ),
+        _buildImageQuickAction(
+          'images/earnings.png',
+          "",
+          () => Navigator.pushNamed(context, '/earnings'),
+        ),
+        _buildImageQuickAction('images/buy.png', "", _openBuyFloats),
+      ];
+    }
+
+    // Default to the Sender layout while role is still null/loading.
+    return [
+      _buildImageQuickAction(
+        'images/posterrand.png',
+        "",
+        () => Navigator.pushNamed(context, '/postErrand'),
+      ),
+      // TODO: no dedicated photo asset for My Requests yet — icon tile
+      // until one is designed, to match the other Quick Action tiles.
+      _buildIconQuickAction(
+        Icons.assignment_outlined,
+        'My Requests',
+        () => Navigator.pushNamed(context, '/myRequests'),
+      ),
+      _buildImageQuickAction(
+        'images/earnings.png',
+        "",
+        () => Navigator.pushNamed(context, '/earnings'),
+      ),
+    ];
+  }
+
+  Widget _buildQuickActionsGrid(List<Widget> tiles) {
+    final rows = <Widget>[];
+    for (var i = 0; i < tiles.length; i += 2) {
+      final hasPair = i + 1 < tiles.length;
+      rows.add(
+        Padding(
+          padding: EdgeInsets.only(top: i == 0 ? 20 : 12),
+          child: hasPair
+              ? Row(
+                  children: [
+                    Expanded(
+                      child: AspectRatio(aspectRatio: 1, child: tiles[i]),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: AspectRatio(aspectRatio: 1, child: tiles[i + 1]),
+                    ),
+                  ],
+                )
+              // Odd tile out gets a wide banner row instead of a bare gap.
+              : AspectRatio(aspectRatio: 2.3, child: tiles[i]),
+        ),
+      );
+    }
+    return Column(children: rows);
+  }
+
+  Widget _buildDashboardStats() {
+    final isRunner = role == 'Runner';
+
+    if (isRunner) {
+      return Row(
+        children: [
+          Expanded(
+            child: _buildStatCard(
+              "Completed",
+              "$completedCount",
+              const Color(0xFF111827),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildStatCard(
+              "Active",
+              "$activeCount",
+              const Color(0xFF111827),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildStatCard(
+              "Floats",
+              "$floatsCount",
+              const Color(0xFF111827),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Default to Sender stats while role is still null/loading.
+    final spentHasDecimals = totalSpent % 1 != 0;
+    final formattedSpent =
+        'K${totalSpent.toStringAsFixed(spentHasDecimals ? 2 : 0)}';
+
+    return Row(
+      children: [
+        Expanded(
+          child: _buildStatCard(
+            "Active Requests",
+            "$activeRequestsCount",
+            const Color(0xFF111827),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildStatCard(
+            "Completed Deliveries",
+            "$completedDeliveriesCount",
+            const Color(0xFF111827),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildStatCard(
+            "Total Spent",
+            formattedSpent,
+            const Color(0xFF111827),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -149,7 +304,7 @@ class _HomePageeState extends State<HomePage> {
         role: role,
         isVerified: isVerified,
       ),
-      backgroundColor: const Color.fromARGB(255, 243, 243, 243),
+      backgroundColor: const Color.fromARGB(255, 255, 255, 255),
       body: Stack(
         children: [
           NotificationListener<ScrollNotification>(
@@ -168,36 +323,7 @@ class _HomePageeState extends State<HomePage> {
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                    GridView.count(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 10,
-                      mainAxisSpacing: 12,
-                      padding: const EdgeInsets.only(top: 20),
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      children: [
-                        _buildImageQuickAction(
-                          'images/posterrand.png',
-                          "",
-                          () => Navigator.pushNamed(context, '/postErrand'),
-                        ),
-                        _buildImageQuickAction(
-                          'images/finderrand.png',
-                          "",
-                          () => Navigator.pushNamed(context, '/findErrands'),
-                        ),
-                        _buildImageQuickAction(
-                          'images/earnings.png',
-                          "",
-                          () => Navigator.pushNamed(context, '/earnings'),
-                        ),
-                        _buildImageQuickAction(
-                          'images/buy.png',
-                          "",
-                          _openBuyFloats,
-                        ),
-                      ],
-                    ),
+                    _buildQuickActionsGrid(_quickActionTiles(context)),
                     const SizedBox(height: 30),
                     Text(
                       "Dashboard",
@@ -207,33 +333,7 @@ class _HomePageeState extends State<HomePage> {
                       ),
                     ),
                     const SizedBox(height: 30),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildStatCard(
-                            "Completed",
-                            "$completedCount",
-                            const Color(0xFF111827),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildStatCard(
-                            "Active",
-                            "$activeCount",
-                            const Color(0xFF111827),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildStatCard(
-                            "Floats",
-                            "$floatsCount",
-                            const Color(0xFF111827),
-                          ),
-                        ),
-                      ],
-                    ),
+                    _buildDashboardStats(),
                     const SizedBox(height: 30),
                     Text(
                       "Recent Activities",
@@ -270,11 +370,11 @@ class _HomePageeState extends State<HomePage> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            "errand.",
+                            "errand",
                             style: GoogleFonts.archivoBlack(
-                              fontSize: 20,
+                              fontSize: 30,
                               fontWeight: FontWeight.w500,
-                              color: const Color(0xFF111827),
+                              color: const Color.fromARGB(255, 122, 164, 255),
                             ),
                           ),
                         ],
@@ -394,6 +494,39 @@ class _HomePageeState extends State<HomePage> {
     );
   }
 
+  Widget _buildIconQuickAction(
+    IconData icon,
+    String label,
+    VoidCallback onTap,
+  ) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF111827),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: Colors.white, size: 32),
+            const SizedBox(height: 10),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildStatCard(String label, String value, Color color) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -425,6 +558,9 @@ class _HomePageeState extends State<HomePage> {
     );
   }
 
+  // TODO: this currently shows all available errands regardless of role.
+  // Eventually filter to "errands I accepted" for Runners vs "errands I
+  // posted" for Senders.
   Widget _buildRecentActivities() {
     return StreamBuilder<List<Errand>>(
       stream: _activeErrandsStream,

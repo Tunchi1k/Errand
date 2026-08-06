@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:errand/services/custom_toast.dart';
+import 'package:errand/services/notification_service.dart';
 
 class PostTaskPage extends StatefulWidget {
   const PostTaskPage({super.key});
@@ -108,6 +109,12 @@ class _PostTaskPageState extends State<PostTaskPage> {
             'updatedAt': FieldValue.serverTimestamp(),
           });
 
+      await _notifyEligibleRunners(
+        senderData: userData,
+        senderFallbackName: user.displayName,
+        price: price,
+      );
+
       if (!mounted) return;
 
       Navigator.pushReplacement(
@@ -124,6 +131,56 @@ class _PostTaskPageState extends State<PostTaskPage> {
       ).showSnackBar(SnackBar(content: Text('Could not post errand: $e')));
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  Future<void> _notifyEligibleRunners({
+    required Map<String, dynamic> senderData,
+    required String? senderFallbackName,
+    required double price,
+  }) async {
+    try {
+      final runnersSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('role', isEqualTo: 'Runner')
+          .get();
+      if (runnersSnapshot.docs.isEmpty) return;
+
+      final senderName =
+          senderData['name']?.toString() ?? senderFallbackName ?? 'A sender';
+      final senderPhone = senderData['phone']?.toString() ?? 'Not provided';
+      final pickup = _pickupController.text.trim();
+      final dropoff = _dropoffController.text.trim();
+      final hasDecimals = price % 1 != 0;
+      final reward = 'K${price.toStringAsFixed(hasDecimals ? 2 : 0)}';
+
+      final message = [
+        'A new errand was just posted.',
+        '',
+        'Sender:\n$senderName',
+        '',
+        'Phone:\n$senderPhone',
+        '',
+        'Pickup:\n$pickup',
+        '',
+        'Drop-off:\n$dropoff',
+        '',
+        'Reward:\n$reward',
+      ].join('\n');
+
+      await Future.wait([
+        for (final runnerDoc in runnersSnapshot.docs)
+          NotificationService.sendNotification(
+            userId: runnerDoc.id,
+            title: 'New Errand Available',
+            message: message,
+            actionLabel: 'View Errand',
+            destinationPage: 'find_errands',
+            notificationType: 'new_errand',
+          ),
+      ]);
+    } catch (e) {
+      debugPrint('Error notifying eligible runners: $e');
     }
   }
 

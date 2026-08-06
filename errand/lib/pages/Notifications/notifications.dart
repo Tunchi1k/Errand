@@ -39,6 +39,7 @@ extension _NotificationTypeWire on NotificationType {
 /// existing named route so notifications never need their own routes.
 const _kNotificationRoutes = <String, String>{
   'delivery': '/myDeliveries',
+  'my_requests': '/myRequests',
   'find_errands': '/findErrands',
   'earnings': '/earnings',
   'buy_floats': '/buyFloats',

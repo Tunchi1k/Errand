@@ -222,7 +222,7 @@ class FirestoreErrandRepository implements ErrandRepository {
             title: 'Runner Assigned',
             message: message,
             actionLabel: 'View Runner',
-            destinationPage: 'delivery',
+            destinationPage: 'my_requests',
             notificationType: 'runner_assigned',
           );
         }

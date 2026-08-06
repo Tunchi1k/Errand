@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:errand/pages/Homepage/home.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:errand/services/notification_service.dart';
 import 'package:errand/services/custom_toast.dart';
 
@@ -45,7 +46,10 @@ class BuyFloatsPage extends StatelessWidget {
             );
           },
         ),
-        title: const Text('Buy Floats'),
+        title: Text(
+          'Buy Floats',
+          style: GoogleFonts.archivoBlack(fontSize: 30),
+        ),
         centerTitle: true,
         titleTextStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
           color: const Color(0xFF111827),

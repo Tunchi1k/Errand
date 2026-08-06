@@ -42,16 +42,18 @@ class HomepageDrawer extends StatelessWidget {
               label: 'My Requests',
               onTap: () => Navigator.pushNamed(context, '/myRequests'),
             ),
-            _DrawerItem(
-              icon: Icons.local_shipping_outlined,
-              label: 'My Deliveries',
-              onTap: () => Navigator.pushNamed(context, '/myDeliveries'),
-            ),
-            _DrawerItem(
-              icon: Icons.account_balance_wallet_outlined,
-              label: 'Wallet',
-              onTap: () => Navigator.pushNamed(context, '/earnings'),
-            ),
+            if (role == 'Runner') ...[
+              _DrawerItem(
+                icon: Icons.local_shipping_outlined,
+                label: 'My Deliveries',
+                onTap: () => Navigator.pushNamed(context, '/myDeliveries'),
+              ),
+              _DrawerItem(
+                icon: Icons.account_balance_wallet_outlined,
+                label: 'Wallet',
+                onTap: () => Navigator.pushNamed(context, '/earnings'),
+              ),
+            ],
             _DrawerItem(
               icon: Iconsax.user,
               label: 'Profile',
@@ -66,18 +68,12 @@ class HomepageDrawer extends StatelessWidget {
             _DrawerItem(
               icon: Icons.help_outline_outlined,
               label: 'Help Center',
-              onTap: () {},
+              onTap: () => Navigator.pushNamed(context, '/helpCenter'),
             ),
             _DrawerItem(
               icon: Icons.policy_outlined,
               label: 'Terms & Policy',
-              onTap: () {},
-            ),
-            _DrawerItem(
-              icon: Iconsax.logout_14,
-              label: 'Logout',
-              isDestructive: true,
-              onTap: () => _confirmLogout(context),
+              onTap: () => Navigator.pushNamed(context, '/termsAndPolicy'),
             ),
             if (role == "Runner" && !isVerified)
               _DrawerItem(
@@ -87,6 +83,12 @@ class HomepageDrawer extends StatelessWidget {
                   Navigator.pushNamed(context, '/verification'),
                 },
               ),
+            _DrawerItem(
+              icon: Iconsax.logout_14,
+              label: 'Logout',
+              isDestructive: true,
+              onTap: () => _confirmLogout(context),
+            ),
           ],
         ),
       ),

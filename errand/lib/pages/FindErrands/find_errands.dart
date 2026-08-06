@@ -3,6 +3,7 @@ import 'package:errand/pages/FindErrands/errand_repository.dart';
 import 'package:errand/pages/Homepage/home.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class FindErrandsPage extends StatefulWidget {
   const FindErrandsPage({super.key});
@@ -105,7 +106,10 @@ class _FindErrandsPageState extends State<FindErrandsPage> {
           onPressed: _goHome,
           tooltip: 'Back',
         ),
-        title: const Text('Find errands'),
+        title: Text(
+          'Find errands',
+          style: GoogleFonts.archivoBlack(fontSize: 30),
+        ),
         centerTitle: true,
         titleTextStyle: theme.textTheme.titleLarge?.copyWith(
           color: const Color(0xFF111827),

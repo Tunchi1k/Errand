@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class EarningsDashboardPage extends StatelessWidget {
   const EarningsDashboardPage({super.key});
@@ -14,7 +15,9 @@ class EarningsDashboardPage extends StatelessWidget {
 
     if (user == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Earnings')),
+        appBar: AppBar(
+          title: Text('Earnings', style: GoogleFonts.archivoBlack(fontSize: 30)),
+        ),
         body: const Center(
           child: Text('Sign in to view your earnings.'),
         ),
@@ -29,7 +32,7 @@ class EarningsDashboardPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 233, 233, 233),
       appBar: AppBar(
-        title: const Text('Earnings'),
+        title: Text('Earnings', style: GoogleFonts.archivoBlack(fontSize: 30)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           tooltip: 'Back',

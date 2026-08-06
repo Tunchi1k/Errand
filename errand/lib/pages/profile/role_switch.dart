@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:errand/services/notification_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class RoleSwitchPage extends StatefulWidget {
   const RoleSwitchPage({required this.currentRole, super.key});
@@ -50,7 +51,10 @@ class _RoleSwitchPageState extends State<RoleSwitchPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FB),
       appBar: AppBar(
-        title: const Text('Switch Role'),
+        title: Text(
+          'Switch Role',
+          style: GoogleFonts.archivoBlack(fontSize: 30),
+        ),
         centerTitle: true,
         backgroundColor: const Color(0xFFF6F8FB),
         surfaceTintColor: Colors.transparent,

@@ -3,6 +3,8 @@ import 'package:errand/pages/Homepage/home.dart';
 import 'package:errand/pages/Earnings/earnings_dashboard.dart';
 import 'package:errand/pages/FindErrands/find_errands.dart';
 import 'package:errand/pages/Floats/buy_floats.dart';
+import 'package:errand/pages/Help/help_center.dart';
+import 'package:errand/pages/Legal/terms_and_policy.dart';
 import 'package:errand/pages/Login%20and%20Signup/verification.dart';
 import 'package:errand/pages/Notifications/notifications.dart';
 import 'package:errand/pages/Requests/my_requests.dart';
@@ -44,6 +46,8 @@ class MyApp extends StatelessWidget {
             ),
         '/verification': (context) => const RunnerVerificationPage(),
         '/profile': (context) => const ProfilePage(),
+        '/termsAndPolicy': (context) => const TermsAndPolicyPage(),
+        '/helpCenter': (context) => const HelpCenterPage(),
       },
     );
   }
