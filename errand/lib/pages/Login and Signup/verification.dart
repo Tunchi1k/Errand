@@ -9,6 +9,8 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:errand/config/supabase_config.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:iconsax/iconsax.dart';
 
 class RunnerVerificationPage extends StatefulWidget {
   const RunnerVerificationPage({super.key});
@@ -200,7 +202,7 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
       );
     } catch (e) {
       if (!mounted) return;
-      debugPrint('submitVerification error: $e'); 
+      debugPrint('submitVerification error: $e');
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(_networkErrorMessage(e))));
@@ -223,10 +225,7 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-        ),
+        Text(label, style: GoogleFonts.archivoBlack(fontSize: 20)),
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
@@ -253,10 +252,7 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-        ),
+        Text(label, style: GoogleFonts.archivoBlack(fontSize: 20)),
         const SizedBox(height: 8),
         GestureDetector(
           onTap: onTap,
@@ -283,6 +279,11 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        title: Text(
+          'Verification',
+          style: GoogleFonts.archivoBlack(fontSize: 30),
+        ),
+        centerTitle: true,
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
@@ -359,7 +360,7 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
                   label: "Email Address",
                   hint: "Enter email",
                   controller: _emailController,
-                  icon: Icons.email,
+                  icon: Iconsax.sms,
                   type: TextInputType.emailAddress,
                   validator: (value) {
                     if (value == null || value.isEmpty)
@@ -373,7 +374,7 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
                   label: "Name",
                   hint: "Enter full name",
                   controller: _nameController,
-                  icon: Icons.person,
+                  icon: Iconsax.user,
                   validator:
                       (value) =>
                           value == null || value.isEmpty
@@ -384,7 +385,7 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
                   label: "Phone Number",
                   hint: "+260",
                   controller: _phoneController,
-                  icon: Icons.phone,
+                  icon: Iconsax.call,
                   type: TextInputType.phone,
                   validator: (value) {
                     if (value == null || value.isEmpty)
@@ -398,7 +399,7 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
                   label: "Computer Number",
                   hint: "Enter computer number",
                   controller: _computerNumberController,
-                  icon: Icons.computer,
+                  icon: Iconsax.monitor,
                   type: TextInputType.number,
                   validator: (value) {
                     if (value == null || value.isEmpty)
@@ -412,7 +413,7 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
                   label: "NRC Number",
                   hint: "Enter NRC number",
                   controller: _nrcController,
-                  icon: Icons.credit_card,
+                  icon: Iconsax.card,
                   validator: (value) {
                     if (value == null || value.isEmpty)
                       return "Invalid NRC number";
@@ -435,7 +436,7 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
                   label: "Room Number",
                   hint: "Enter room number",
                   controller: _roomController,
-                  icon: Icons.home,
+                  icon: Iconsax.home,
                   validator:
                       (value) =>
                           value == null || value.isEmpty
@@ -466,6 +467,29 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
                                 color: Colors.white,
                               ),
                             ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    onPressed:
+                        isSubmitting
+                            ? null
+                            : () => Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const HomePage(),
+                              ),
+                            ),
+                    child: const Text(
+                      'Verify Later',
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                 ),
               ],

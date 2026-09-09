@@ -44,6 +44,10 @@ class _MyRequestsPageState extends State<MyRequestsPage>
           style: GoogleFonts.archivoBlack(fontSize: 30),
         ),
         centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios),
+          onPressed: () => Navigator.pop(context),
+        ),
         backgroundColor: _surfaceGrey,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
@@ -65,81 +69,83 @@ class _MyRequestsPageState extends State<MyRequestsPage>
               user == null
                   ? const _SignedOutState()
                   : StreamBuilder<List<RequestErrand>>(
-                  stream: FirestoreRequestsRepository().watchUserRequests(
-                    user.uid,
-                  ),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const _RequestsLoadingState();
-                    }
+                    stream: FirestoreRequestsRepository().watchUserRequests(
+                      user.uid,
+                    ),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const _RequestsLoadingState();
+                      }
 
-                    if (snapshot.hasError) {
-                      return const _RequestsErrorState();
-                    }
+                      if (snapshot.hasError) {
+                        return const _RequestsErrorState();
+                      }
 
-                    final requests = snapshot.data ?? const <RequestErrand>[];
-                    final active = requests.where((r) => !r.isHistory).toList();
-                    final history = requests.where((r) => r.isHistory).toList();
-                    return Column(
-                      children: [
-                        Material(
-                          color: _surfaceGrey,
-                          child: Container(
-                            margin: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: _surfaceGrey,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: const Color(0xFFE5E7EB),
+                      final requests = snapshot.data ?? const <RequestErrand>[];
+                      final active =
+                          requests.where((r) => !r.isHistory).toList();
+                      final history =
+                          requests.where((r) => r.isHistory).toList();
+                      return Column(
+                        children: [
+                          Material(
+                            color: _surfaceGrey,
+                            child: Container(
+                              margin: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: _surfaceGrey,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: const Color(0xFFE5E7EB),
+                                ),
+                              ),
+                              child: TabBar(
+                                controller: _tabController,
+                                indicatorSize: TabBarIndicatorSize.tab,
+                                dividerColor: Colors.transparent,
+                                labelColor: Colors.white,
+                                unselectedLabelColor: const Color(0xFF6B7280),
+                                labelStyle: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                ),
+                                unselectedLabelStyle: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                                indicator: BoxDecoration(
+                                  color: const Color(0xFF102A43),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                tabs: const [
+                                  Tab(text: 'Active'),
+                                  Tab(text: 'History'),
+                                ],
                               ),
                             ),
-                            child: TabBar(
+                          ),
+                          Expanded(
+                            child: TabBarView(
                               controller: _tabController,
-                              indicatorSize: TabBarIndicatorSize.tab,
-                              dividerColor: Colors.transparent,
-                              labelColor: Colors.white,
-                              unselectedLabelColor: const Color(0xFF6B7280),
-                              labelStyle: const TextStyle(
-                                fontWeight: FontWeight.w900,
-                              ),
-                              unselectedLabelStyle: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                              ),
-                              indicator: BoxDecoration(
-                                color: const Color(0xFF102A43),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              tabs: const [
-                                Tab(text: 'Active'),
-                                Tab(text: 'History'),
+                              children: [
+                                _RequestList(
+                                  requests: active,
+                                  emptyTitle: 'No Active Requests',
+                                  emptySubtitle:
+                                      "You haven't posted any active requests.",
+                                ),
+                                _RequestList(
+                                  requests: history,
+                                  emptyTitle: 'No Request History',
+                                  emptySubtitle:
+                                      'Completed and cancelled requests will appear here.',
+                                ),
                               ],
                             ),
                           ),
-                        ),
-                        Expanded(
-                          child: TabBarView(
-                            controller: _tabController,
-                            children: [
-                              _RequestList(
-                                requests: active,
-                                emptyTitle: 'No Active Requests',
-                                emptySubtitle:
-                                    "You haven't posted any active requests.",
-                              ),
-                              _RequestList(
-                                requests: history,
-                                emptyTitle: 'No Request History',
-                                emptySubtitle:
-                                    'Completed and cancelled requests will appear here.',
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
+                        ],
+                      );
+                    },
+                  ),
         ),
       ),
     );
@@ -199,9 +205,7 @@ class _RequestList extends StatelessWidget {
         final request = requests[index];
         return request.isHistory
             ? _HistoryRequestCard(request: request)
-            : request.isTracking
-            ? _TrackingRequestCard(request: request)
-            : _ActiveRequestCard(request: request);
+            : _TrackingRequestCard(request: request);
       },
     );
   }
@@ -582,28 +586,37 @@ class _TrackingRequestCard extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Card(
-        elevation: 0,
-        color: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-            future:
-                FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(request.runnerId)
-                    .get(),
-            builder:
-                (_, snapshot) => _RunnerProfileCard(
-                  data: snapshot.data?.data(),
-                  acceptedAt: request.acceptedAt,
-                ),
+      if (request.isTracking) ...[
+        Card(
+          elevation: 0,
+          color: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+              future:
+                  FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(request.runnerId)
+                      .get(),
+              builder:
+                  (_, snapshot) => _RunnerProfileCard(
+                    data: snapshot.data?.data(),
+                    acceptedAt: request.acceptedAt,
+                  ),
+            ),
           ),
         ),
+        const SizedBox(height: 24),
+      ],
+      _ProgressTimeline(
+        status:
+            request.isTracking
+                ? (request.deliveryStatus ?? 'headingToPickup')
+                : 'posted',
       ),
-      const SizedBox(height: 24),
-      _ProgressTimeline(status: request.deliveryStatus ?? 'headingToPickup'),
       const SizedBox(height: 24),
       Row(
         children: [
@@ -898,7 +911,9 @@ class _ProgressTimeline extends StatelessWidget {
     ];
     final normalized = status.toLowerCase().replaceAll('_', '');
     final current =
-        normalized == 'delivered'
+        normalized == 'posted'
+            ? 0
+            : normalized == 'delivered'
             ? 4
             : normalized == 'itemcollected'
             ? 3

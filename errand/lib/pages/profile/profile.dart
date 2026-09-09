@@ -58,9 +58,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Color _profileAvatarColor() {
-    const colors = [
-      Color(0xFF111827)
-    ];
+    const colors = [Color(0xFF111827)];
     final name = userData?['name']?.toString().trim() ?? '';
     final seed = name.isEmpty ? (user?.uid ?? '?') : name;
     var hash = 0;
@@ -190,7 +188,9 @@ class _ProfilePageState extends State<ProfilePage> {
 
         final response = await http
             .post(
-              Uri.parse('$supabaseUrl/storage/v1/object/$supabaseUserProfileBucket/$fileName'),
+              Uri.parse(
+                '$supabaseUrl/storage/v1/object/$supabaseUserProfileBucket/$fileName',
+              ),
               headers: {
                 'Authorization': 'Bearer $supabaseKey',
                 'apikey': supabaseKey,
@@ -254,7 +254,9 @@ class _ProfilePageState extends State<ProfilePage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not delete your account. Please try again.')),
+        const SnackBar(
+          content: Text('Could not delete your account. Please try again.'),
+        ),
       );
     }
   }
@@ -263,18 +265,43 @@ class _ProfilePageState extends State<ProfilePage> {
     title: 'Profile Information',
     children: [
       buildInfoTile(Iconsax.user, 'Name', userData!['name'] ?? 'N/A', 'name'),
-      buildInfoTile(Iconsax.profile_circle, 'Username', userData!['username'] ?? 'N/A', 'username'),
+      buildInfoTile(
+        Iconsax.profile_circle,
+        'Username',
+        userData!['username'] ?? 'N/A',
+        'username',
+      ),
     ],
   );
 
   Widget _personalInfoCard() => _infoCard(
     title: 'Personal Information',
     children: [
-      buildInfoTile(Iconsax.card, 'Student ID', userData!['studentId'] ?? 'N/A', 'studentId'),
+      buildInfoTile(
+        Iconsax.card,
+        'Student ID',
+        userData!['studentId'] ?? 'N/A',
+        'studentId',
+      ),
       buildInfoTile(Iconsax.sms, 'Email', userData!['email'] ?? 'N/A', 'email'),
-      buildInfoTile(Iconsax.call, 'Phone Number', userData!['phone'] ?? 'N/A', 'phone'),
-      buildInfoTile(Iconsax.user_octagon, 'Gender', userData!['gender'] ?? 'N/A', 'gender'),
-      buildInfoTile(Iconsax.home, 'Room Number', userData!['roomNumber'] ?? 'N/A', 'roomNumber'),
+      buildInfoTile(
+        Iconsax.call,
+        'Phone Number',
+        userData!['phone'] ?? 'N/A',
+        'phone',
+      ),
+      buildInfoTile(
+        Iconsax.user_octagon,
+        'Gender',
+        userData!['gender'] ?? 'N/A',
+        'gender',
+      ),
+      buildInfoTile(
+        Iconsax.home,
+        'Room Number',
+        userData!['roomNumber'] ?? 'N/A',
+        'roomNumber',
+      ),
     ],
   );
 
@@ -282,10 +309,16 @@ class _ProfilePageState extends State<ProfilePage> {
     title: 'Account Details',
     children: [
       ListTile(
-        title: const Text('Role', style: TextStyle(fontWeight: FontWeight.w500)),
+        title: const Text(
+          'Role',
+          style: TextStyle(fontWeight: FontWeight.w500),
+        ),
         trailing: const Icon(Icons.chevron_right),
         onTap: () async {
-          final currentRole = userData!['role']?.toString() ?? 'Sender';
+          final currentRole =
+              userData!['activeRole']?.toString() ??
+              userData!['role']?.toString() ??
+              'Sender';
           final switched = await Navigator.push<bool>(
             context,
             MaterialPageRoute(
@@ -295,7 +328,8 @@ class _ProfilePageState extends State<ProfilePage> {
           if (switched == true && mounted) {
             final account = _auth.currentUser;
             if (account != null) {
-              final snapshot = await _firestore.collection('users').doc(account.uid).get();
+              final snapshot =
+                  await _firestore.collection('users').doc(account.uid).get();
               if (mounted) setState(() => userData = snapshot.data());
             }
           }
@@ -327,44 +361,87 @@ class _ProfilePageState extends State<ProfilePage> {
       'isVerified': false,
     });
     if (!mounted) return;
-    setState(() => userData = {...?userData, 'role': 'Runner', 'isVerified': false});
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You are now a runner. Complete verification to accept errands.')));
+    setState(
+      () => userData = {...?userData, 'role': 'Runner', 'isVerified': false},
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'You are now a runner. Complete verification to accept errands.',
+        ),
+      ),
+    );
   }
 
   Future<void> _changePassword() async {
     final controller = TextEditingController();
     final password = await showDialog<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Change Password'),
-        content: TextField(controller: controller, obscureText: true, decoration: const InputDecoration(labelText: 'New password')),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, controller.text), child: const Text('Update')),
-        ],
-      ),
+      builder:
+          (dialogContext) => AlertDialog(
+            title: const Text('Change Password'),
+            content: TextField(
+              controller: controller,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'New password'),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, controller.text),
+                child: const Text('Update'),
+              ),
+            ],
+          ),
     );
     controller.dispose();
     if (password == null || password.length < 6) return;
     try {
       await _auth.currentUser?.updatePassword(password);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password updated successfully.')));
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Password updated successfully.')),
+        );
     } on FirebaseAuthException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.code == 'requires-recent-login' ? 'Please sign in again before changing your password.' : 'Could not update password.')));
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              e.code == 'requires-recent-login'
+                  ? 'Please sign in again before changing your password.'
+                  : 'Could not update password.',
+            ),
+          ),
+        );
     }
   }
 
   Future<void> _confirmDeleteAccount() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete Account'),
-        content: const Text('Are you sure you want to delete your account? This action cannot be undone.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
-        ],
-      ),
+      builder:
+          (dialogContext) => AlertDialog(
+            title: const Text('Delete Account'),
+            content: const Text(
+              'Are you sure you want to delete your account? This action cannot be undone.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text(
+                  'Delete',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+          ),
     );
     if (confirmed == true) _deleteAccount();
   }
@@ -375,7 +452,13 @@ class _ProfilePageState extends State<ProfilePage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: const [BoxShadow(color: Color(0x0D111827), blurRadius: 10, offset: Offset(0, 3))],
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D111827),
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
@@ -391,10 +474,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          'Profile',
-          style: GoogleFonts.archivoBlack(fontSize: 30),
-        ),
+        title: Text('Profile', style: GoogleFonts.archivoBlack(fontSize: 30)),
         centerTitle: true,
         backgroundColor: const Color(0xFFF3F4F6),
         surfaceTintColor: Colors.transparent,

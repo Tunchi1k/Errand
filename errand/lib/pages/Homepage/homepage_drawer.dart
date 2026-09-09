@@ -37,11 +37,12 @@ class HomepageDrawer extends StatelessWidget {
               label: 'Home',
               onTap: () => Navigator.pop(context),
             ),
-            _DrawerItem(
-              icon: Icons.assignment_outlined,
-              label: 'My Requests',
-              onTap: () => Navigator.pushNamed(context, '/myRequests'),
-            ),
+            if (role != 'Runner')
+              _DrawerItem(
+                icon: Icons.assignment_outlined,
+                label: 'My Requests',
+                onTap: () => Navigator.pushNamed(context, '/myRequests'),
+              ),
             if (role == 'Runner') ...[
               _DrawerItem(
                 icon: Icons.local_shipping_outlined,

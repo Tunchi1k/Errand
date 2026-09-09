@@ -9,6 +9,7 @@ import 'package:errand/pages/Login%20and%20Signup/verification.dart';
 import 'package:errand/pages/Notifications/notifications.dart';
 import 'package:errand/pages/Requests/my_requests.dart';
 import 'package:errand/pages/Taskpage/post_task.dart';
+import 'package:errand/pages/WhatsNew/whats_new.dart';
 import 'package:errand/pages/profile/profile.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -40,6 +41,7 @@ class MyApp extends StatelessWidget {
         '/buyFloats': (context) => const BuyFloatsPage(),
         '/myDeliveries': (context) => const MyDeliveriesPage(),
         '/myRequests': (context) => const MyRequestsPage(),
+        '/whatsNew': (context) => const WhatsNewPage(),
         '/notifications':
             (context) => NotificationScreen(
               userId: FirebaseAuth.instance.currentUser!.uid,

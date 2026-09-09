@@ -3,6 +3,9 @@ import 'package:errand/pages/Login%20and%20Signup/role.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:errand/pages/Login%20and%20Signup/login.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:iconsax/iconsax.dart';
+import 'package:errand/services/custom_toast.dart';
 
 class SignUp extends StatefulWidget {
   const SignUp({super.key});
@@ -20,6 +23,7 @@ class _SignUpState extends State<SignUp> {
   final TextEditingController passwordController = TextEditingController();
 
   bool isLoading = false;
+  bool _showPassword = false;
 
   bool isValidEmail(String email) {
     return RegExp(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$").hasMatch(email);
@@ -81,9 +85,7 @@ class _SignUpState extends State<SignUp> {
   }
 
   void showSnackBar(String message, Color color) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
+    CustomToast.show(context, message, color: color.withValues(alpha: .8));
   }
 
   void handleFirebaseAuthError(FirebaseAuthException e) {
@@ -136,40 +138,48 @@ class _SignUpState extends State<SignUp> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    "Name",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+                  Text(
+                    "Full Name",
+                    style: GoogleFonts.archivoBlack(fontSize: 20),
                   ),
                   TextField(
                     controller: nameController,
                     decoration: const InputDecoration(
                       hintText: "Enter full name",
-                      suffixIcon: Icon(Icons.person, color: Colors.black),
+                      suffixIcon: const Icon(Iconsax.user, color: Colors.black),
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const Text(
+                  Text(
                     "Email",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+                    style: GoogleFonts.archivoBlack(fontSize: 20),
                   ),
                   TextField(
                     controller: emailController,
                     decoration: const InputDecoration(
                       hintText: "Enter email",
-                      suffixIcon: Icon(Icons.email, color: Colors.black),
+                      suffixIcon: const Icon(Iconsax.sms, color: Colors.black),
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const Text(
+                  Text(
                     "Password",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+                    style: GoogleFonts.archivoBlack(fontSize: 20),
                   ),
                   TextField(
                     controller: passwordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
+                    obscureText: !_showPassword,
+                    decoration: InputDecoration(
                       hintText: "Enter password",
-                      suffixIcon: Icon(Icons.lock, color: Colors.black),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _showPassword ? Iconsax.eye : Iconsax.eye_slash,
+                          color: Colors.black,
+                        ),
+                        onPressed: () => setState(
+                          () => _showPassword = !_showPassword,
+                        ),
+                      ),
                     ),
                   ),
                 ],

@@ -16,25 +16,27 @@ class EarningsDashboardPage extends StatelessWidget {
     if (user == null) {
       return Scaffold(
         appBar: AppBar(
-          title: Text('Earnings', style: GoogleFonts.archivoBlack(fontSize: 30)),
+          title: Text(
+            'Earnings',
+            style: GoogleFonts.archivoBlack(fontSize: 30),
+          ),
         ),
-        body: const Center(
-          child: Text('Sign in to view your earnings.'),
-        ),
+        body: const Center(child: Text('Sign in to view your earnings.')),
       );
     }
 
-    final userDocStream = FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .snapshots();
+    final userDocStream =
+        FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .snapshots();
 
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 233, 233, 233),
       appBar: AppBar(
         title: Text('Earnings', style: GoogleFonts.archivoBlack(fontSize: 30)),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back_ios),
           tooltip: 'Back',
           onPressed: () => Navigator.pop(context),
         ),
@@ -60,16 +62,30 @@ class EarningsDashboardPage extends StatelessWidget {
             }
 
             final data = snapshot.data?.data() ?? {};
-            final num earningsNum = (data['earnings'] is num) ? data['earnings'] as num : 0;
-            final totalEarnings = 'K${earningsNum % 1 == 0 ? earningsNum.toInt() : earningsNum.toStringAsFixed(2)}';
-            final completedErrands = (data['completedErrands'] is int) ? data['completedErrands'] as int : (data['completedErrands'] is num ? (data['completedErrands'] as num).toInt() : 0);
-            final weeklyCompletedErrands = (data['weeklyCompletedErrands'] is int) ? data['weeklyCompletedErrands'] as int : 0;
+            final num earningsNum =
+                (data['earnings'] is num) ? data['earnings'] as num : 0;
+            final totalEarnings =
+                'K${earningsNum % 1 == 0 ? earningsNum.toInt() : earningsNum.toStringAsFixed(2)}';
+            final completedErrands =
+                (data['completedErrands'] is int)
+                    ? data['completedErrands'] as int
+                    : (data['completedErrands'] is num
+                        ? (data['completedErrands'] as num).toInt()
+                        : 0);
+            final weeklyCompletedErrands =
+                (data['weeklyCompletedErrands'] is int)
+                    ? data['weeklyCompletedErrands'] as int
+                    : 0;
             final rating = data['rating']?.toString() ?? '—';
             final acceptanceRate = data['acceptanceRate']?.toString() ?? '—';
             final completionRate = data['completionRate']?.toString() ?? '—';
-            final averageDeliveryTime = data['averageDeliveryTime']?.toString() ?? '—';
+            final averageDeliveryTime =
+                data['averageDeliveryTime']?.toString() ?? '—';
             final trendDataRaw = data['earningTrend'];
-            final List<num> trendData = trendDataRaw is List ? List<num>.from(trendDataRaw.map((e) => e is num ? e : 0)) : List<num>.filled(7, 0);
+            final List<num> trendData =
+                trendDataRaw is List
+                    ? List<num>.from(trendDataRaw.map((e) => e is num ? e : 0))
+                    : List<num>.filled(7, 0);
 
             return SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
@@ -223,9 +239,15 @@ class StatCardWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final background = isPrimary ? const Color(0xFF111827) : const Color.fromARGB(255, 165, 165, 165);
+    final background =
+        isPrimary
+            ? const Color(0xFF111827)
+            : const Color.fromARGB(255, 165, 165, 165);
     final foreground = isPrimary ? Colors.white : const Color(0xFF111827);
-    final muted = isPrimary ? const Color.fromARGB(255, 255, 255, 255) : const Color(0xFF111827);
+    final muted =
+        isPrimary
+            ? const Color.fromARGB(255, 255, 255, 255)
+            : const Color(0xFF111827);
 
     return Container(
       width: double.infinity,

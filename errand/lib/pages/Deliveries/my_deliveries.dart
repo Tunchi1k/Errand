@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:errand/services/notification_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class MyDeliveriesPage extends StatelessWidget {
   const MyDeliveriesPage({super.key});
@@ -15,7 +16,15 @@ class MyDeliveriesPage extends StatelessWidget {
       child: Scaffold(
         backgroundColor: const Color(0xFFF6F8FB),
         appBar: AppBar(
-          title: const Text('My Deliveries'),
+          title: Text(
+            'My Deliveries',
+            style: GoogleFonts.archivoBlack(fontSize: 30),
+          ),
+          centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios),
+            onPressed: () => Navigator.pop(context),
+          ),
           backgroundColor: const Color(0xFFF6F8FB),
           elevation: 0,
           surfaceTintColor: Colors.transparent,

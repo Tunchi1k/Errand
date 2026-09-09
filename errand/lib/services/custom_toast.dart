@@ -4,19 +4,28 @@ import 'package:flutter/material.dart';
 class CustomToast {
   const CustomToast._();
 
-  static void show(BuildContext context, String message) {
+  static void show(
+    BuildContext context,
+    String message, {
+    Color color = const Color(0xCCB91C1C),
+  }) {
     final overlay = Overlay.of(context);
     late final OverlayEntry entry;
     entry = OverlayEntry(
-      builder: (_) => _ToastOverlay(message: message, onFinished: entry.remove),
+      builder: (_) => _ToastOverlay(
+        message: message,
+        color: color,
+        onFinished: entry.remove,
+      ),
     );
     overlay.insert(entry);
   }
 }
 
 class _ToastOverlay extends StatefulWidget {
-  const _ToastOverlay({required this.message, required this.onFinished});
+  const _ToastOverlay({required this.message, required this.color, required this.onFinished});
   final String message;
+  final Color color;
   final VoidCallback onFinished;
 
   @override
@@ -52,7 +61,8 @@ class _ToastOverlayState extends State<_ToastOverlay> {
   @override
   Widget build(BuildContext context) => Positioned.fill(
     child: IgnorePointer(
-      child: Center(
+      child: Align(
+        alignment: const Alignment(0, 0.85),
         child: AnimatedOpacity(
           opacity: _visible ? 1 : 0,
           duration: const Duration(milliseconds: 250),
@@ -60,10 +70,17 @@ class _ToastOverlayState extends State<_ToastOverlay> {
             color: Colors.transparent,
             child: Container(
               constraints: const BoxConstraints(maxWidth: 320),
-              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 16),
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.65),
-                borderRadius: BorderRadius.circular(14),
+                color: widget.color,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x33000000),
+                    blurRadius: 14,
+                    offset: Offset(0, 6),
+                  ),
+                ],
               ),
               child: Text(widget.message, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600, height: 1.35)),
             ),

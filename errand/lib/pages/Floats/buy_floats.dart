@@ -37,7 +37,7 @@ class BuyFloatsPage extends StatelessWidget {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back_ios),
           tooltip: 'Back',
           onPressed: () {
             Navigator.pushReplacement(
@@ -172,10 +172,17 @@ class BuyFloatsPage extends StatelessWidget {
     }
 
     // Verify user role is Runner
-    final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+    final userDoc =
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
     final role = userDoc.data()?['role']?.toString();
     if (role != 'Runner') {
-      CustomToast.show(context, 'Runner Access Required\n\nFloats are only available for runner accounts. Switch to a runner account to purchase floats and start accepting errands.');
+      CustomToast.show(
+        context,
+        'Runner Access Required\n\nFloats are only available for runner accounts. Switch to a runner account to purchase floats and start accepting errands.',
+      );
       return;
     }
 
@@ -201,12 +208,14 @@ class BuyFloatsPage extends StatelessWidget {
 
       await batch.commit();
       final previousFloats = userDoc.data()?['floats'];
-      final newBalance = (previousFloats is num ? previousFloats.toInt() : 0) +
+      final newBalance =
+          (previousFloats is num ? previousFloats.toInt() : 0) +
           selection.package.floats;
       await NotificationService.sendNotification(
         userId: user.uid,
         title: 'Floats Purchased',
-        message: 'Your float purchase was successful.\n\n'
+        message:
+            'Your float purchase was successful.\n\n'
             'Floats Added:\n${selection.package.floats} Floats\n\n'
             'New Float Balance:\n$newBalance Floats',
         actionLabel: 'View Float Balance',
@@ -222,7 +231,6 @@ class BuyFloatsPage extends StatelessWidget {
       CustomToast.show(context, 'Could not submit purchase request: $e');
     }
   }
-
 }
 
 class FloatBalanceCard extends StatelessWidget {

@@ -102,7 +102,7 @@ class _FindErrandsPageState extends State<FindErrandsPage> {
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back_ios),
           onPressed: _goHome,
           tooltip: 'Back',
         ),
@@ -146,8 +146,7 @@ class _FindErrandsPageState extends State<FindErrandsPage> {
                     sliver: SliverList(
                       delegate: SliverChildListDelegate([
                         if (!_hasActiveFloats) ...[
-                          _FloatEligibilityBanner(
-                          ),
+                          _FloatEligibilityBanner(),
                           const SizedBox(height: 18),
                         ],
 
@@ -176,7 +175,8 @@ class _FindErrandsPageState extends State<FindErrandsPage> {
                         if (errands.isNotEmpty)
                           _RecommendedErrandCard(
                             errand: errands.first,
-                            onViewDetails: () => _openErrandDetails(errands.first),
+                            onViewDetails:
+                                () => _openErrandDetails(errands.first),
                           )
                         else
                           const _CompactEmptyRecommendedCard(),
@@ -249,7 +249,11 @@ class _FindErrandsPageState extends State<FindErrandsPage> {
     }
 
     // Ensure only users with role 'Runner' can accept errands
-    final userSnapshot = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+    final userSnapshot =
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
     final role = userSnapshot.data()?['role']?.toString();
     if (role != 'Runner') {
       _showFindErrandsSnackBar(
@@ -277,7 +281,8 @@ class _FindErrandsPageState extends State<FindErrandsPage> {
         'Complete your active delivery before accepting another.',
       AcceptErrandResult.errandUnavailable =>
         'This errand is no longer available.',
-      AcceptErrandResult.userNotFound => 'Could not verify your runner account.',
+      AcceptErrandResult.userNotFound =>
+        'Could not verify your runner account.',
     };
 
     _showFindErrandsSnackBar(
@@ -963,10 +968,7 @@ class _ErrorState extends StatelessWidget {
 }
 
 class _ErrandDetailsSheet extends StatelessWidget {
-  const _ErrandDetailsSheet({
-    required this.errand,
-    required this.onAccept,
-  });
+  const _ErrandDetailsSheet({required this.errand, required this.onAccept});
 
   final Errand errand;
   final Future<void> Function() onAccept;
@@ -1032,9 +1034,7 @@ class _ErrandDetailsSheet extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
-                Expanded(
-                  child: _AcceptButton(onAccept: onAccept),
-                ),
+                Expanded(child: _AcceptButton(onAccept: onAccept)),
               ],
             ),
           ],
@@ -1074,20 +1074,19 @@ class _AcceptButtonState extends State<_AcceptButton> {
         backgroundColor: const Color(0xFF102A43),
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 14),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
-      child: _isLoading
-          ? const SizedBox(
-              height: 18,
-              width: 18,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
-            )
-          : const Text('Accept'),
+      child:
+          _isLoading
+              ? const SizedBox(
+                height: 18,
+                width: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+              : const Text('Accept'),
     );
   }
 }
