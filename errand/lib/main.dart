@@ -11,6 +11,7 @@ import 'package:errand/pages/Requests/my_requests.dart';
 import 'package:errand/pages/Taskpage/post_task.dart';
 import 'package:errand/pages/WhatsNew/whats_new.dart';
 import 'package:errand/pages/profile/profile.dart';
+import 'package:errand/widgets/app_loading_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -46,23 +47,46 @@ class MyApp extends StatelessWidget {
         );
       },
       home: const Login(),
-      routes: {
-        '/postErrand': (context) => const PostTaskPage(),
-        '/findErrands': (context) => const FindErrandsPage(),
-        '/earnings': (context) => const EarningsDashboardPage(),
-        '/buyFloats': (context) => const BuyFloatsPage(),
-        '/myDeliveries': (context) => const MyDeliveriesPage(),
-        '/myRequests': (context) => const MyRequestsPage(),
-        '/whatsNew': (context) => const WhatsNewPage(),
-        '/notifications':
-            (context) => NotificationScreen(
-              userId: FirebaseAuth.instance.currentUser!.uid,
-            ),
-        '/verification': (context) => const RunnerVerificationPage(),
-        '/profile': (context) => const ProfilePage(),
-        '/termsAndPolicy': (context) => const TermsAndPolicyPage(),
-        '/helpCenter': (context) => const HelpCenterPage(),
+      onGenerateRoute: (settings) {
+        final builder = _routeBuilder(settings.name);
+        if (builder == null) return null;
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (context) => AppLoadingScreen(pageBuilder: builder),
+        );
       },
     );
+  }
+
+  WidgetBuilder? _routeBuilder(String? name) {
+    switch (name) {
+      case '/postErrand':
+        return (_) => const PostTaskPage();
+      case '/findErrands':
+        return (_) => const FindErrandsPage();
+      case '/earnings':
+        return (_) => const EarningsDashboardPage();
+      case '/buyFloats':
+        return (_) => const BuyFloatsPage();
+      case '/myDeliveries':
+        return (_) => const MyDeliveriesPage();
+      case '/myRequests':
+        return (_) => const MyRequestsPage();
+      case '/whatsNew':
+        return (_) => const WhatsNewPage();
+      case '/notifications':
+        return (_) =>
+            NotificationScreen(userId: FirebaseAuth.instance.currentUser!.uid);
+      case '/verification':
+        return (_) => const RunnerVerificationPage();
+      case '/profile':
+        return (_) => const ProfilePage();
+      case '/termsAndPolicy':
+        return (_) => const TermsAndPolicyPage();
+      case '/helpCenter':
+        return (_) => const HelpCenterPage();
+      default:
+        return null;
+    }
   }
 }
