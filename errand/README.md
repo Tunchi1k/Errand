@@ -1,5 +1,14 @@
 # errand
 
+Build the Android app normally:
+
+```bash
+flutter build apk --release
+```
+
+The Supabase anon key is bundled for client-side uploads. To override it for
+another Supabase project, use `--dart-define=SUPABASE_ANON_KEY=...`.
+
 A new Flutter project.
 
 ## Getting Started

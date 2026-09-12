@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 enum NotificationType {
+  newErrand,
   deliveryAssigned,
   errandCancelled,
   deliveryCompleted,
@@ -15,6 +16,7 @@ enum NotificationType {
 
 extension _NotificationTypeWire on NotificationType {
   static const _wireNames = {
+    NotificationType.newErrand: 'new_errand',
     NotificationType.deliveryAssigned: 'delivery_assigned',
     NotificationType.errandCancelled: 'errand_cancelled',
     NotificationType.deliveryCompleted: 'delivery_completed',
@@ -27,12 +29,13 @@ extension _NotificationTypeWire on NotificationType {
 
   String get wireName => _wireNames[this]!;
 
-  static NotificationType fromWireName(String? name) => _wireNames.entries
-      .firstWhere(
-        (entry) => entry.value == name,
-        orElse: () => const MapEntry(NotificationType.deliveryAssigned, ''),
-      )
-      .key;
+  static NotificationType fromWireName(String? name) =>
+      _wireNames.entries
+          .firstWhere(
+            (entry) => entry.value == name,
+            orElse: () => const MapEntry(NotificationType.deliveryAssigned, ''),
+          )
+          .key;
 }
 
 /// Maps the semantic `destinationPage` key stored on a notification to an
@@ -267,34 +270,32 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
                   itemCount: visible.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder:
-                      (context, index) {
-                        final notification = visible[index];
-                        return Dismissible(
-                          key: ValueKey(notification.id),
-                          direction: DismissDirection.endToStart,
-                          background: Container(
-                            alignment: Alignment.centerRight,
-                            padding: const EdgeInsets.only(right: 24),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFB91C1C),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: const Icon(
-                              Icons.delete,
-                              color: Colors.white,
-                              size: 28,
-                            ),
-                          ),
-                          confirmDismiss:
-                              (_) => _confirmDelete(notification),
-                          child: NotificationCard(
-                            notification: notification,
-                            timeAgo: timeAgo,
-                            onTap: () => _openNotification(notification),
-                          ),
-                        );
-                      },
+                  itemBuilder: (context, index) {
+                    final notification = visible[index];
+                    return Dismissible(
+                      key: ValueKey(notification.id),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 24),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFB91C1C),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Icon(
+                          Icons.delete,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                      ),
+                      confirmDismiss: (_) => _confirmDelete(notification),
+                      child: NotificationCard(
+                        notification: notification,
+                        timeAgo: timeAgo,
+                        onTap: () => _openNotification(notification),
+                      ),
+                    );
+                  },
                 ),
               ),
           ],
@@ -335,11 +336,7 @@ class _NotificationFilters extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
         ),
         onTap: (index) => onChanged(NotificationFilter.values[index]),
-        tabs: const [
-          Tab(text: 'All'),
-          Tab(text: 'Unread'),
-          Tab(text: 'Read'),
-        ],
+        tabs: const [Tab(text: 'All'), Tab(text: 'Unread'), Tab(text: 'Read')],
       ),
     ),
   );

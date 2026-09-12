@@ -574,10 +574,6 @@ class _DetailRow extends StatelessWidget {
   }
 }
 
-class _ActiveRequestCard extends _RequestCard {
-  const _ActiveRequestCard({required super.request});
-}
-
 class _TrackingRequestCard extends StatelessWidget {
   const _TrackingRequestCard({required this.request});
   final RequestErrand request;
@@ -1015,65 +1011,6 @@ class _ProgressTimeline extends StatelessWidget {
       ),
     );
   }
-}
-
-class _DeliverySummaryCard extends StatelessWidget {
-  const _DeliverySummaryCard({required this.request});
-  final RequestErrand request;
-  @override
-  Widget build(BuildContext context) => Card(
-    elevation: 0,
-    color: Colors.white,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-    child: Padding(
-      padding: const EdgeInsets.all(22),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Delivery Details',
-            style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            request.title,
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 12),
-          _SummaryLine(label: 'Pickup', value: request.pickupLocation),
-          _SummaryLine(label: 'Drop-off', value: request.dropoffLocation),
-          _SummaryLine(label: 'Reward', value: request.formattedPrice),
-        ],
-      ),
-    ),
-  );
-}
-
-class _SummaryLine extends StatelessWidget {
-  const _SummaryLine({required this.label, required this.value});
-  final String label;
-  final String value;
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: 8),
-    child: Row(
-      children: [
-        Text(
-          '$label: ',
-          style: const TextStyle(
-            color: Color(0xFF6B7280),
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: const TextStyle(fontWeight: FontWeight.w800),
-          ),
-        ),
-      ],
-    ),
-  );
 }
 
 String _formatRelative(Timestamp timestamp) {
