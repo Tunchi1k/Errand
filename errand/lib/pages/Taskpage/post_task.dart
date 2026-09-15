@@ -664,7 +664,7 @@ class _SearchingForRunnerPageState extends State<SearchingForRunnerPage>
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 36),
               child: Text(
-                'Runners can now see this request',
+                'Runners can now see this request and you will be notified when a runner accepts it.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.black54, fontSize: 15),
               ),

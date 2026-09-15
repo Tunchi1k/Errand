@@ -23,6 +23,7 @@ class _ProfilePageState extends State<ProfilePage> {
   User? user;
   Map<String, dynamic>? userData;
   File? _image;
+  bool _isPhotoUpdating = false;
 
   String _profilePhotoUrl() {
     final photoUrl = userData?['profilePhoto']?.toString() ?? '';
@@ -169,23 +170,72 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Future<void> _pickImage() async {
+  Future<void> _showPhotoOptions() async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder:
+          (context) => SafeArea(
+            child: Wrap(
+              children: [
+                const ListTile(
+                  title: Text(
+                    'Profile photo',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(Iconsax.camera),
+                  title: const Text('Take a photo'),
+                  onTap: () => Navigator.pop(context, 'camera'),
+                ),
+                ListTile(
+                  leading: const Icon(Iconsax.gallery),
+                  title: const Text('Choose from gallery'),
+                  onTap: () => Navigator.pop(context, 'gallery'),
+                ),
+                if (_profilePhotoUrl().isNotEmpty)
+                  ListTile(
+                    leading: const Icon(Iconsax.trash, color: Colors.red),
+                    title: const Text('Remove photo'),
+                    onTap: () => Navigator.pop(context, 'remove'),
+                  ),
+              ],
+            ),
+          ),
+    );
+
+    if (!mounted || action == null) return;
+    if (action == 'remove') {
+      await _removeProfilePhoto();
+      return;
+    }
+    await _pickImage(
+      action == 'camera' ? ImageSource.camera : ImageSource.gallery,
+    );
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
     final pickedFile = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
+      source: source,
+      imageQuality: 85,
+      maxWidth: 1200,
+      maxHeight: 1200,
     );
     if (pickedFile != null) {
       File imageFile = File(pickedFile.path);
       setState(() {
         _image = imageFile;
+        _isPhotoUpdating = true;
       });
 
       try {
         final userId = user!.uid;
         final updatedAt = DateTime.now().millisecondsSinceEpoch;
-        final fileName = "$userId-$updatedAt.jpg";
+        // A stable path replaces the user's existing photo instead of creating
+        // a new orphaned object on every update.
+        final fileName = '$userId.jpg';
         final bytes = await imageFile.readAsBytes();
-        debugPrint('KEY LENGTH: ${supabaseKey.length}');
-
         final response = await http
             .post(
               Uri.parse(
@@ -214,6 +264,7 @@ class _ProfilePageState extends State<ProfilePage> {
           setState(() {
             userData!['profilePhoto'] = publicUrl;
             userData!['profilePhotoUpdatedAt'] = updatedAt;
+            _isPhotoUpdating = false;
           });
         } else {
           debugPrint('Upload failed: ${response.body}');
@@ -228,7 +279,34 @@ class _ProfilePageState extends State<ProfilePage> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(_networkErrorMessage(e))));
+      } finally {
+        if (mounted) setState(() => _isPhotoUpdating = false);
       }
+    }
+  }
+
+  Future<void> _removeProfilePhoto() async {
+    final userId = user?.uid;
+    if (userId == null) return;
+    setState(() => _isPhotoUpdating = true);
+    try {
+      await _firestore.collection('users').doc(userId).update({
+        'profilePhoto': FieldValue.delete(),
+        'profilePhotoUpdatedAt': FieldValue.delete(),
+      });
+      if (!mounted) return;
+      setState(() {
+        _image = null;
+        userData?.remove('profilePhoto');
+        userData?.remove('profilePhotoUpdatedAt');
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not remove profile photo: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isPhotoUpdating = false);
     }
   }
 
@@ -492,10 +570,19 @@ class _ProfilePageState extends State<ProfilePage> {
                     _profileAvatar(),
                     SizedBox(height: 10),
                     TextButton(
-                      onPressed: _pickImage,
-                      child: Text(
-                        'Change Profile Photo',
-                        style: TextStyle(color: Colors.blue),
+                      onPressed: _isPhotoUpdating ? null : _showPhotoOptions,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _isPhotoUpdating
+                                ? 'Updating...'
+                                : 'Edit Profile Photo',
+                            style: const TextStyle(color: Color.fromARGB(255, 2, 30, 53)),
+                          ),
+                          const SizedBox(width: 6),
+                          const Icon(Iconsax.edit_25, size: 16, color: Color.fromARGB(255, 2, 30, 53)),
+                        ],
                       ),
                     ),
                     SizedBox(height: 20),

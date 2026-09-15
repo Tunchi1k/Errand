@@ -79,7 +79,7 @@ class _LoginState extends State<Login> {
   @override
   Widget build(BuildContext context) {
     final horizontalPadding = Responsive.horizontalPadding(context);
-    final logoWidth = Responsive.width(context, 400).clamp(180.0, 400.0);
+    final logoWidth = Responsive.width(context, 250).clamp(140.0, 250.0);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -98,49 +98,47 @@ class _LoginState extends State<Login> {
                   child: Image.asset(
                     'images/logo.png',
                     width: logoWidth,
-                    height: 200,
+                    height: 140,
                     fit: BoxFit.contain,
                   ),
                 ),
-                Center(
-                  child: Text(
-                    'errand.',
-                    style: GoogleFonts.archivoBlack(
-                      fontSize: 30,
-                      color: const Color.fromARGB(255, 122, 164, 255),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 100.0),
+             
+                const SizedBox(height: 85.0),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 30.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         "Email",
-                        style: GoogleFonts.archivoBlack(fontSize: 20),
+                        style: GoogleFonts.archivoBlack(fontSize: 15),
                       ),
                       TextField(
                         controller: mailcontroller,
                         decoration: const InputDecoration(
-                          hintText: "enter email",
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(vertical: 10),
+                          hintText: "Enter email",
                           suffixIcon: const Icon(
                             Iconsax.sms,
                             color: Colors.black,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 20.0),
+                      const SizedBox(height: 14.0),
                       Text(
                         "Password",
-                        style: GoogleFonts.archivoBlack(fontSize: 20),
+                        style: GoogleFonts.archivoBlack(fontSize: 15),
                       ),
                       TextField(
                         controller: passwordcontroller,
                         obscureText: !_showPassword,
                         decoration: InputDecoration(
-                          hintText: "enter password",
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 10,
+                          ),
+                          hintText: "Enter password",
                           suffixIcon: IconButton(
                             icon: Icon(
                               _showPassword ? Iconsax.eye : Iconsax.eye_slash,
@@ -156,14 +154,14 @@ class _LoginState extends State<Login> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 35.0),
+                const SizedBox(height: 60.0),
                 Center(
                   child: ElevatedButton(
                     onPressed:
                         isLoading ? null : userLogin, // Calls the function
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color.fromARGB(255, 0, 63, 97),
-                      minimumSize: const Size(250, 45),
+                      minimumSize: const Size(170, 42),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(40),
                       ),
@@ -176,14 +174,14 @@ class _LoginState extends State<Login> {
                             : const Text(
                               "Log in",
                               style: TextStyle(
-                                fontSize: 17.0,
+                                fontSize: 14.0,
                                 fontWeight: FontWeight.bold,
                                 color: Color.fromARGB(255, 255, 255, 255),
                               ),
                             ),
                   ),
                 ),
-                const SizedBox(height: 20.0),
+                const SizedBox(height: 14.0),
                 Center(
                   child: GestureDetector(
                     onTap: () {
@@ -198,13 +196,13 @@ class _LoginState extends State<Login> {
                       "Forgot Password?",
                       style: TextStyle(
                         color: Color.fromARGB(255, 36, 37, 39),
-                        fontSize: 18.0,
+                        fontSize: 14.0,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 40.0),
+                const SizedBox(height: 24.0),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -212,7 +210,7 @@ class _LoginState extends State<Login> {
                       "Don't have an account?",
                       style: TextStyle(
                         color: Color.fromARGB(255, 102, 108, 109),
-                        fontSize: 18.0,
+                        fontSize: 14.0,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -230,7 +228,7 @@ class _LoginState extends State<Login> {
                         "Signup",
                         style: TextStyle(
                           color: Color.fromARGB(255, 0, 0, 0),
-                          fontSize: 18.0,
+                          fontSize: 14.0,
                           fontWeight: FontWeight.w500,
                         ),
                       ),

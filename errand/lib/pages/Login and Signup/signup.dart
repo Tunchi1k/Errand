@@ -125,11 +125,13 @@ class _SignUpState extends State<SignUp> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.only(left: 5, top: 40),
-              child: SizedBox(
-                width: 440,
-                height: 300,
-                child: Image.asset("images/Signup.png"),
+              padding: const EdgeInsets.only(top: 40),
+              child: Center(
+                child: SizedBox(
+                  width: 300,
+                  height: 205,
+                  child: Image.asset("images/Signup.png"),
+                ),
               ),
             ),
             const SizedBox(height: 50),
@@ -140,7 +142,7 @@ class _SignUpState extends State<SignUp> {
                 children: [
                   Text(
                     "Full Name",
-                    style: GoogleFonts.archivoBlack(fontSize: 20),
+                    style: GoogleFonts.archivoBlack(fontSize: 15),
                   ),
                   TextField(
                     controller: nameController,
@@ -150,10 +152,7 @@ class _SignUpState extends State<SignUp> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  Text(
-                    "Email",
-                    style: GoogleFonts.archivoBlack(fontSize: 20),
-                  ),
+                  Text("Email", style: GoogleFonts.archivoBlack(fontSize: 15)),
                   TextField(
                     controller: emailController,
                     decoration: const InputDecoration(
@@ -164,7 +163,7 @@ class _SignUpState extends State<SignUp> {
                   const SizedBox(height: 20),
                   Text(
                     "Password",
-                    style: GoogleFonts.archivoBlack(fontSize: 20),
+                    style: GoogleFonts.archivoBlack(fontSize: 15),
                   ),
                   TextField(
                     controller: passwordController,
@@ -176,9 +175,9 @@ class _SignUpState extends State<SignUp> {
                           _showPassword ? Iconsax.eye : Iconsax.eye_slash,
                           color: Colors.black,
                         ),
-                        onPressed: () => setState(
-                          () => _showPassword = !_showPassword,
-                        ),
+                        onPressed:
+                            () =>
+                                setState(() => _showPassword = !_showPassword),
                       ),
                     ),
                   ),
@@ -190,8 +189,8 @@ class _SignUpState extends State<SignUp> {
               child: GestureDetector(
                 onTap: isLoading ? null : registerUser,
                 child: Container(
-                  height: 44.8,
-                  width: 250,
+                  height: 42,
+                  width: 170,
                   decoration: BoxDecoration(
                     color:
                         isLoading
@@ -209,7 +208,7 @@ class _SignUpState extends State<SignUp> {
                             : const Text(
                               "Sign up",
                               style: TextStyle(
-                                fontSize: 17,
+                                fontSize: 14,
                                 fontWeight: FontWeight.w500,
                                 color: Colors.white,
                               ),
@@ -226,7 +225,7 @@ class _SignUpState extends State<SignUp> {
                   "Already have an account?",
                   style: TextStyle(
                     color: Color(0xFF8c8e98),
-                    fontSize: 18,
+                    fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -241,7 +240,7 @@ class _SignUpState extends State<SignUp> {
                     "Login",
                     style: TextStyle(
                       color: Colors.black,
-                      fontSize: 20,
+                      fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
                   ),

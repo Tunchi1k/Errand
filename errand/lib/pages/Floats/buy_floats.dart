@@ -185,6 +185,13 @@ class BuyFloatsPage extends StatelessWidget {
       );
       return;
     }
+    if (userDoc.data()?['verified'] != true) {
+      CustomToast.show(
+        context,
+        'Verification Required\n\nYou must verify your runner account before purchasing floats.',
+      );
+      return;
+    }
 
     try {
       final firestore = FirebaseFirestore.instance;

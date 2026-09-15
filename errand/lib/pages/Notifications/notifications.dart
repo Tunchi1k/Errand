@@ -437,9 +437,10 @@ class NotificationDetailsPage extends StatelessWidget {
     ),
     body: Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           Material(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
@@ -478,7 +479,7 @@ class NotificationDetailsPage extends StatelessWidget {
               ),
             ),
           ),
-          const Spacer(),
+          if (notification.actionLabel != null) const SizedBox(height: 24),
           if (notification.actionLabel != null)
             SizedBox(
               width: double.infinity,
@@ -500,7 +501,8 @@ class NotificationDetailsPage extends StatelessWidget {
                 child: Text(notification.actionLabel!),
               ),
             ),
-        ],
+          ],
+        ),
       ),
     ),
   );

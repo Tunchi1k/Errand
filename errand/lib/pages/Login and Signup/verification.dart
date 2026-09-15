@@ -225,14 +225,16 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.archivoBlack(fontSize: 20)),
-        const SizedBox(height: 8),
+        Text(label, style: GoogleFonts.archivoBlack(fontSize: 15)),
+        const SizedBox(height: 4),
         TextFormField(
           controller: controller,
           obscureText: obscure,
           keyboardType: type,
           validator: validator,
           decoration: InputDecoration(
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(vertical: 10),
             hintText: hint,
             prefixIcon: icon != null ? Icon(icon, color: Colors.black) : null,
             filled: true,
@@ -243,7 +245,7 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
             ),
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 14),
       ],
     );
   }
@@ -252,13 +254,13 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.archivoBlack(fontSize: 20)),
-        const SizedBox(height: 8),
+        Text(label, style: GoogleFonts.archivoBlack(fontSize: 15)),
+        const SizedBox(height: 4),
         GestureDetector(
           onTap: onTap,
           child: Container(
             width: double.infinity,
-            height: 150,
+            height: 105,
             decoration: BoxDecoration(
               color: Colors.grey[100],
               borderRadius: BorderRadius.circular(12),
@@ -270,7 +272,7 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
                     : Image.file(file, fit: BoxFit.cover),
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 14),
       ],
     );
   }
@@ -281,7 +283,7 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
       appBar: AppBar(
         title: Text(
           'Verification',
-          style: GoogleFonts.archivoBlack(fontSize: 30),
+          style: GoogleFonts.archivoBlack(fontSize: 22),
         ),
         centerTitle: true,
         backgroundColor: Colors.white,
@@ -342,7 +344,7 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
       backgroundColor: Colors.white,
       body: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Form(
             key: _formKey,
             child: Column(
@@ -351,11 +353,11 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
                 Center(
                   child: SizedBox(
                     width: 440,
-                    height: 200,
+                    height: 145,
                     child: Image.asset("images/verify.png"),
                   ),
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 18),
                 buildField(
                   label: "Email Address",
                   hint: "Enter email",
@@ -443,13 +445,13 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
                               ? "Enter room number"
                               : null,
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 6),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: isSubmitting ? null : submitVerification,
                     style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
                       backgroundColor: const Color.fromARGB(255, 0, 63, 97),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),
@@ -463,7 +465,7 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
                             : const Text(
                               "Submit for Verification",
                               style: TextStyle(
-                                fontSize: 16,
+                                fontSize: 14,
                                 color: Colors.white,
                               ),
                             ),
@@ -486,7 +488,7 @@ class _RunnerVerificationPageState extends State<RunnerVerificationPage> {
                       'Verify Later',
                       style: TextStyle(
                         color: Colors.black,
-                        fontSize: 17,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
                     ),

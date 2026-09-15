@@ -41,23 +41,30 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
           },
         ),
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(left: 65, top: 0.2),
-              child: SizedBox(
-                width: 290,
-                height: 300,
-                child: Image.asset("images/role.png"),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final horizontalPadding = constraints.maxWidth < 360 ? 16.0 : 24.0;
+            final illustrationHeight =
+                constraints.maxHeight < 600 ? 190.0 : 250.0;
+
+            return SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                8,
+                horizontalPadding,
+                24,
               ),
-            ),
-            const SizedBox(height: 10.0),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 30.0),
               child: Column(
                 children: [
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: 320,
+                      maxHeight: illustrationHeight,
+                    ),
+                    child: Image.asset("images/role.png", fit: BoxFit.contain),
+                  ),
+                  SizedBox(height: constraints.maxHeight < 600 ? 8 : 18),
                   _buildRoleCard(
                     title: "Runner",
                     description:
@@ -86,7 +93,7 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
                       );
                     },
                   ),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 20),
                   _buildRoleCard(
                     title: "Sender",
                     description:
@@ -115,8 +122,8 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
                   ),
                 ],
               ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -136,7 +143,7 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
         duration: const Duration(milliseconds: 100),
         transform:
             isLoading ? Matrix4.translationValues(0, 2, 0) : Matrix4.identity(),
-        padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
         decoration: BoxDecoration(
           color: backgroundColor,
           borderRadius: BorderRadius.circular(20),
@@ -156,18 +163,18 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
               title,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 26,
+                fontSize: 21,
                 fontWeight: FontWeight.bold,
                 color: textColor,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 6),
             Text(
               description,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16, color: textColor.withOpacity(0.8)),
+              style: TextStyle(fontSize: 13, color: textColor.withOpacity(0.8)),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 8),
             if (isLoading)
               const SizedBox(
                 width: 20,
